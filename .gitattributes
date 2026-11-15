@@ -1,0 +1,2 @@
+# Store text with LF line endings; each machine checks out its native endings
+* text=auto
