@@ -1,164 +1,164 @@
-Track,Level,VoteCount,MinRating,MaxRating,AvgRating,DemocraticRating
-Claymore,9,1,9.4,9.4,9.4,9.5
-Anomaly*,9,2,9.4,9.45,9.43,9.43
+Track,Level,VoteCount,MinRating,MaxRating,MedianRating,DemocraticRating
+Claymore,9,1,9.4,9.4,9.5,9.5
+Anomaly*,9,2,9.4,9.45,9.43,9.44
 Steel Wave,9,2,9.4,9.4,9.4,9.4
-Hattusa*,9,3,9.2,9.3,9.25,9.25
-Final Sorrow,9,6,9.0,9.2,9.13,9.15
-Deviant,9,4,9.0,9.1,9.02,9.0
+Hattusa*,9,3,9.2,9.3,9.25,9.29
+Final Sorrow,9,6,9.0,9.2,9.15,9.16
+Deviant,9,4,9.0,9.1,9.0,9.02
 SP- Rapture,9,5,9.0,9.0,9.0,9.0
-Whitespire*,9,3,9.0,9.1,9.03,9.0
-(B) Wrath of the Titans*,8,0,,,,8.9
-Eclipse,8,5,8.8,8.9,8.88,8.9
-Fission*,8,5,8.8,9.0,8.9,8.9
-Sinister,8,5,8.9,9.0,8.92,8.9
-Adventurous,8,5,8.8,8.9,8.82,8.8
-DNA,8,6,8.5,8.9,8.78,8.8
-Lonely*,8,6,8.7,8.8,8.75,8.75
-OPERATION: Neon Bullet,8,6,8.6,8.8,8.72,8.75
+Whitespire*,9,3,9.0,9.1,9.0,9.05
+(B) Wrath of the Titans*,8,0,,,8.9,8.9
+Eclipse,8,5,8.8,8.9,8.9,8.88
+Fission*,8,5,8.8,9.0,8.9,8.88
+Sinister,8,5,8.9,9.0,8.9,8.94
+Adventurous,8,5,8.8,8.9,8.8,8.84
+DNA,8,6,8.5,8.9,8.8,8.82
+Lonely*,8,6,8.7,8.8,8.75,8.74
+OPERATION: Neon Bullet,8,6,8.6,8.8,8.75,8.76
 Anhedonia*,8,1,8.7,8.7,8.7,8.7
-Faith,8,7,8.5,8.7,8.6,8.6
-Techfinity,8,6,8.5,8.7,8.6,8.6
-Darko [<3],8,10,8.3,8.7,8.53,8.55
-Gladius,8,7,8.3,8.7,8.5,8.5
-Jessamine [<3],8,7,8.3,8.7,8.5,8.5
-Nanga Parbat [7],8,5,8.4,8.6,8.48,8.5
-Nutritious III,8,9,8.4,8.7,8.54,8.5
-Ramrod,8,7,8.4,8.7,8.51,8.5
+Faith,8,7,8.5,8.7,8.6,8.64
+Techfinity,8,6,8.5,8.7,8.6,8.59
+Darko [<3],8,10,8.3,8.7,8.55,8.56
+Gladius,8,7,8.3,8.7,8.5,8.47
+Jessamine [<3],8,7,8.3,8.7,8.5,8.54
+Nanga Parbat [7],8,5,8.4,8.6,8.5,8.45
+Nutritious III,8,9,8.4,8.7,8.5,8.55
+Ramrod,8,7,8.4,8.7,8.5,8.51
 Fractured**,8,8,8.3,8.6,8.45,8.45
 Purple Moon,8,2,8.4,8.5,8.45,8.45
-Golem,8,9,8.3,8.6,8.44,8.4
-King Pin 2,8,9,8.3,8.5,8.41,8.4
-Monochrome,8,10,8.2,8.6,8.4,8.4
-Singularity,8,9,8.3,8.5,8.4,8.4
-Victorious *,8,10,8.1,8.6,8.41,8.4
-Wraith,8,13,8.1,8.4,8.36,8.4
-[TFA] Pliff Plaugh*,8,6,8.3,8.5,8.4,8.4
+Golem,8,9,8.3,8.6,8.4,8.45
+King Pin 2,8,9,8.3,8.5,8.4,8.41
+Monochrome,8,10,8.2,8.6,8.4,8.43
+Singularity,8,9,8.3,8.5,8.4,8.39
+Victorious *,8,10,8.1,8.6,8.4,8.38
+Wraith,8,13,8.1,8.4,8.4,8.38
+[TFA] Pliff Plaugh*,8,6,8.3,8.5,8.4,8.41
 Krueger,8,7,8.3,8.4,8.35,8.35
-Bloodmoon,8,9,8.1,8.3,8.24,8.3
-Cliff-hanger,8,7,8.2,8.4,8.29,8.3
-Infamous,8,7,8.2,8.5,8.33,8.3
-Infinity & Beyond,8,12,8.1,8.4,8.26,8.3
-Erebus,8,8,8.2,8.5,8.29,8.25
-Crown Control,8,10,8.0,8.2,8.17,8.2
-Miraculous,8,9,8.0,8.3,8.18,8.2
-Obsession,8,9,8.1,8.3,8.18,8.2
-Murderous,8,10,7.9,8.4,8.15,8.15
-Farrago 2,8,8,8.0,8.3,8.1,8.1
-Infinity,8,13,8.0,8.2,8.08,8.1
-Odyssey,8,11,8.0,8.2,8.12,8.1
-Flabbergasted,8,12,7.8,8.1,7.97,8.0
-Galneryus X,8,11,7.9,8.2,7.98,8.0
-King Pin 3,8,9,8.0,8.1,8.02,8.0
-SP- Aftermath X,8,7,7.9,8.3,8.1,8.0
-Vicious,8,13,7.9,8.0,7.97,8.0
+Bloodmoon,8,9,8.1,8.3,8.3,8.24
+Cliff-hanger,8,7,8.2,8.4,8.3,8.28
+Infamous,8,7,8.2,8.5,8.3,8.35
+Infinity & Beyond,8,12,8.1,8.4,8.3,8.27
+Erebus,8,8,8.2,8.5,8.25,8.26
+Crown Control,8,10,8.0,8.2,8.2,8.17
+Miraculous,8,9,8.0,8.3,8.2,8.17
+Obsession,8,9,8.1,8.3,8.2,8.19
+Murderous,8,10,7.9,8.4,8.15,8.14
+Farrago 2,8,8,8.0,8.3,8.1,8.08
+Infinity,8,13,8.0,8.2,8.1,8.08
+Odyssey,8,11,8.0,8.2,8.1,8.08
+Flabbergasted,8,12,7.8,8.1,8.0,7.97
+Galneryus X,8,11,7.9,8.2,8.0,7.98
+King Pin 3,8,9,8.0,8.1,8.0,8.01
+SP- Aftermath X,8,7,7.9,8.3,8.0,8.04
+Vicious,8,13,7.9,8.0,8.0,7.98
 Devoted X [fix],8,10,7.9,8.0,7.95,7.95
-... :),8,9,7.8,8.1,7.92,7.9
-(SX) SlideGod (NJ),7,0,,,,7.0
-Adrenaline [F],7,0,,,,7.0
-Alcazar,7,0,,,,7.0
-Annihilation,7,0,,,,7.0
-Antiquity,7,0,,,,7.0
-Apathy,7,0,,,,7.0
-Arctic Sorrow*,7,0,,,,7.0
-Ataraxia,7,0,,,,7.0
-Barrier,7,0,,,,7.0
-Beyond Animality*,7,0,,,,7.0
-Beyond Inhumanity 2 fix,7,0,,,,7.0
-Boundaged,7,0,,,,7.0
-Breath of the Dying,7,0,,,,7.0
-Bright Futures *,7,0,,,,7.0
-Cauterize,7,0,,,,7.0
-Cliff-Dangler,7,0,,,,7.0
-Crossroads,7,0,,,,7.0
-Dark Sabotage,7,0,,,,7.0
-Dead End,7,0,,,,7.0
-Dead Root,7,0,,,,7.0
-Demente,7,0,,,,7.0
-Demorage,7,0,,,,7.0
-Detritus [F],7,0,,,,7.0
-Devoted IV,7,0,,,,7.0
-Dystopian rider 2.0,7,0,,,,7.0
-Dystopian rider [F],7,0,,,,7.0
-Ebolg,7,0,,,,7.0
-Eggplant [<3],7,0,,,,7.0
-Ellen,7,0,,,,7.0
-Facinorous,7,0,,,,7.0
-Fake Promise,7,0,,,,7.0
-Fantasma**,7,0,,,,7.0
-Farrago,7,0,,,,7.0
-Filtered,7,0,,,,7.0
-Forlorn*,7,0,,,,7.0
-Fuji,7,0,,,,7.0
-Grievous,7,0,,,,7.0
-Gulag,7,0,,,,7.0
-Halcyon,7,0,,,,7.0
-Hellcension,7,0,,,,7.0
-Hemorrhage,7,0,,,,7.0
-Hypocrisy,7,0,,,,7.0
-Incendiary,7,0,,,,7.0
-Infraction,7,0,,,,7.0
-Interval [<3],7,0,,,,7.0
-Iratze,7,0,,,,7.0
-Kaua'i,7,0,,,,7.0
-King Pin,7,0,,,,7.0
-King Pin 4,7,0,,,,7.0
-King Tulip,7,0,,,,7.0
-Kiwi [<3],7,0,,,,7.0
-Knebel,7,0,,,,7.0
-Ladnar,7,0,,,,7.0
-Legling Divne,7,0,,,,7.0
-Lhotse,7,0,,,,7.0
-Lhotse II,7,0,,,,7.0
-Litchi,7,0,,,,7.0
-Loathe,7,0,,,,7.0
-Lorna Shore,7,0,,,,7.0
-Luscious,7,0,,,,7.0
-Malicious,7,0,,,,7.0
-Maze,7,0,,,,7.0
-Momentous,7,0,,,,7.0
-Monstrum,7,0,,,,7.0
-Monstrum 1.5,7,0,,,,7.0
-Monstrum Duo,7,0,,,,7.0
-Mutant,7,0,,,,7.0
-Nacrol,7,0,,,,7.0
-Peach [F],7,0,,,,7.0
-Pernicious,7,0,,,,7.0
-Plopandary,7,0,,,,7.0
-Prince Tulip,7,0,,,,7.0
-Procyon [7],7,0,,,,7.0
-Reptilia,7,0,,,,7.0
-Resilience 2,7,0,,,,7.0
-Resilience 3,7,0,,,,7.0
-Rigorous,7,0,,,,7.0
-Ripted,7,0,,,,7.0
-SHYU PARK,7,0,,,,7.0
-SP- Exodus,7,0,,,,7.0
-SP- Genesis,7,0,,,,7.0
-SP- Orion,7,0,,,,7.0
-Sabotage,7,0,,,,7.0
-Sentinel,7,0,,,,7.0
-Side Quest,7,0,,,,7.0
-Slate,7,0,,,,7.0
-Solemn,7,0,,,,7.0
-Sumrak*,7,0,,,,7.0
-Technician,7,0,,,,7.0
-Technician 2,7,0,,,,7.0
-Tedium,7,0,,,,7.0
-The Kilian's Journey,7,0,,,,7.0
-The Slyde's Journey [<3],7,0,,,,7.0
-Throttle Inferiority,7,0,,,,7.0
-Trivium,7,0,,,,7.0
-Untethered Angel,7,0,,,,7.0
-Vicit,7,0,,,,7.0
-Wayfarer,7,0,,,,7.0
-Within,7,0,,,,7.0
-Xenolith,7,0,,,,7.0
-Xibalba,7,0,,,,7.0
-Xiyga,7,0,,,,7.0
-Yagmi,7,0,,,,7.0
-Yuri,7,0,,,,7.0
-Zamoth,7,0,,,,7.0
-Zen : Back Wheel Only,7,0,,,,7.0
-[FM] Nutritious II,7,0,,,,7.0
-[NG] Blizzerker,7,0,,,,7.0
-[R] Beyond Inhumanity,7,0,,,,7.0
+... :),8,9,7.8,8.1,7.9,7.91
+(SX) SlideGod (NJ),7,0,,,7.0,7.0
+Adrenaline [F],7,0,,,7.0,7.0
+Alcazar,7,0,,,7.0,7.0
+Annihilation,7,0,,,7.0,7.0
+Antiquity,7,0,,,7.0,7.0
+Apathy,7,0,,,7.0,7.0
+Arctic Sorrow*,7,0,,,7.0,7.0
+Ataraxia,7,0,,,7.0,7.0
+Barrier,7,0,,,7.0,7.0
+Beyond Animality*,7,0,,,7.0,7.0
+Beyond Inhumanity 2 fix,7,0,,,7.0,7.0
+Boundaged,7,0,,,7.0,7.0
+Breath of the Dying,7,0,,,7.0,7.0
+Bright Futures *,7,0,,,7.0,7.0
+Cauterize,7,0,,,7.0,7.0
+Cliff-Dangler,7,0,,,7.0,7.0
+Crossroads,7,0,,,7.0,7.0
+Dark Sabotage,7,0,,,7.0,7.0
+Dead End,7,0,,,7.0,7.0
+Dead Root,7,0,,,7.0,7.0
+Demente,7,0,,,7.0,7.0
+Demorage,7,0,,,7.0,7.0
+Detritus [F],7,0,,,7.0,7.0
+Devoted IV,7,0,,,7.0,7.0
+Dystopian rider 2.0,7,0,,,7.0,7.0
+Dystopian rider [F],7,0,,,7.0,7.0
+Ebolg,7,0,,,7.0,7.0
+Eggplant [<3],7,0,,,7.0,7.0
+Ellen,7,0,,,7.0,7.0
+Facinorous,7,0,,,7.0,7.0
+Fake Promise,7,0,,,7.0,7.0
+Fantasma**,7,0,,,7.0,7.0
+Farrago,7,0,,,7.0,7.0
+Filtered,7,0,,,7.0,7.0
+Forlorn*,7,0,,,7.0,7.0
+Fuji,7,0,,,7.0,7.0
+Grievous,7,0,,,7.0,7.0
+Gulag,7,0,,,7.0,7.0
+Halcyon,7,0,,,7.0,7.0
+Hellcension,7,0,,,7.0,7.0
+Hemorrhage,7,0,,,7.0,7.0
+Hypocrisy,7,0,,,7.0,7.0
+Incendiary,7,0,,,7.0,7.0
+Infraction,7,0,,,7.0,7.0
+Interval [<3],7,0,,,7.0,7.0
+Iratze,7,0,,,7.0,7.0
+Kaua'i,7,0,,,7.0,7.0
+King Pin,7,0,,,7.0,7.0
+King Pin 4,7,0,,,7.0,7.0
+King Tulip,7,0,,,7.0,7.0
+Kiwi [<3],7,0,,,7.0,7.0
+Knebel,7,0,,,7.0,7.0
+Ladnar,7,0,,,7.0,7.0
+Legling Divne,7,0,,,7.0,7.0
+Lhotse,7,0,,,7.0,7.0
+Lhotse II,7,0,,,7.0,7.0
+Litchi,7,0,,,7.0,7.0
+Loathe,7,0,,,7.0,7.0
+Lorna Shore,7,0,,,7.0,7.0
+Luscious,7,0,,,7.0,7.0
+Malicious,7,0,,,7.0,7.0
+Maze,7,0,,,7.0,7.0
+Momentous,7,0,,,7.0,7.0
+Monstrum,7,0,,,7.0,7.0
+Monstrum 1.5,7,0,,,7.0,7.0
+Monstrum Duo,7,0,,,7.0,7.0
+Mutant,7,0,,,7.0,7.0
+Nacrol,7,0,,,7.0,7.0
+Peach [F],7,0,,,7.0,7.0
+Pernicious,7,0,,,7.0,7.0
+Plopandary,7,0,,,7.0,7.0
+Prince Tulip,7,0,,,7.0,7.0
+Procyon [7],7,0,,,7.0,7.0
+Reptilia,7,0,,,7.0,7.0
+Resilience 2,7,0,,,7.0,7.0
+Resilience 3,7,0,,,7.0,7.0
+Rigorous,7,0,,,7.0,7.0
+Ripted,7,0,,,7.0,7.0
+SHYU PARK,7,0,,,7.0,7.0
+SP- Exodus,7,0,,,7.0,7.0
+SP- Genesis,7,0,,,7.0,7.0
+SP- Orion,7,0,,,7.0,7.0
+Sabotage,7,0,,,7.0,7.0
+Sentinel,7,0,,,7.0,7.0
+Side Quest,7,0,,,7.0,7.0
+Slate,7,0,,,7.0,7.0
+Solemn,7,0,,,7.0,7.0
+Sumrak*,7,0,,,7.0,7.0
+Technician,7,0,,,7.0,7.0
+Technician 2,7,0,,,7.0,7.0
+Tedium,7,0,,,7.0,7.0
+The Kilian's Journey,7,0,,,7.0,7.0
+The Slyde's Journey [<3],7,0,,,7.0,7.0
+Throttle Inferiority,7,0,,,7.0,7.0
+Trivium,7,0,,,7.0,7.0
+Untethered Angel,7,0,,,7.0,7.0
+Vicit,7,0,,,7.0,7.0
+Wayfarer,7,0,,,7.0,7.0
+Within,7,0,,,7.0,7.0
+Xenolith,7,0,,,7.0,7.0
+Xibalba,7,0,,,7.0,7.0
+Xiyga,7,0,,,7.0,7.0
+Yagmi,7,0,,,7.0,7.0
+Yuri,7,0,,,7.0,7.0
+Zamoth,7,0,,,7.0,7.0
+Zen : Back Wheel Only,7,0,,,7.0,7.0
+[FM] Nutritious II,7,0,,,7.0,7.0
+[NG] Blizzerker,7,0,,,7.0,7.0
+[R] Beyond Inhumanity,7,0,,,7.0,7.0

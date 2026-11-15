@@ -1,13 +1,13 @@
 import polars as pl
 
 import points_calculator as pc
-from democratic_ratings import track_votes
+from democratic_ratings import CORRECT_VOTER_LEAN, fetch_sheet, track_votes
 
 
 # Writes three CSVs:
 #   output/player_elo.csv - Every player's rank and Elo: Place, Player, Rank, Elo, Level (effective level), Runs, Ranked
 #   output/top_runs.csv - The best runs by points: Rank, Player, Track, Faults, Points
-#   data/track_ratings.csv - Every track's vote spread and rating as scored: Track, Level, VoteCount, MinRating, MaxRating, AvgRating, DemocraticRating
+#   data/track_ratings.csv - Every track's vote spread and both candidate ratings: Track, Level, VoteCount, MinRating, MaxRating, MedianRating, DemocraticRating
 
 # Usage: python driver.py
 
@@ -40,28 +40,36 @@ def top_runs(runs_df, votes_df=None, count=TOP_RUNS_COUNT):
     )
 
 
-def track_ratings(runs_df, votes_df):
-    # Vote spread per track (blank if nobody voted) beside the rating used for scoring
-    # (override, else median sheet vote, else flat level), hardest first
-    spread = votes_df.select(
+def track_ratings(runs_df, sheet):
+    # Raw vote spread per track (blank if nobody voted) beside both candidate ratings, hardest first by the one scoring uses.
+    # Both apply the same fallbacks (override, else median vote, else flat level):
+    #   MedianRating - median of the raw votes; scored when CORRECT_VOTER_LEAN is off
+    #   DemocraticRating - median of the voter-lean-corrected votes; scored when CORRECT_VOTER_LEAN is on
+    raw_votes = track_votes(sheet, correct_lean=False)
+    spread = raw_votes.select(
         "Track",
         "Level",
         pl.col("Votes").list.min().alias("MinRating"),
         pl.col("Votes").list.max().alias("MaxRating"),
-        pl.col("Votes").list.mean().round(2).alias("AvgRating"),
     )
+    corrected = pc.track_ratings(runs_df, track_votes(sheet, correct_lean=True)).select(
+        "Track", "Level", pl.col("TrackRating").round(2).alias("DemocraticRating")
+    )
+    scored_by = "DemocraticRating" if CORRECT_VOTER_LEAN else "MedianRating"
     return (
-        pc.track_ratings(runs_df, votes_df)
+        pc.track_ratings(runs_df, raw_votes)
         .join(spread, on=["Track", "Level"], how="left")
-        .with_columns(pl.col("TrackRating").round(2).alias("DemocraticRating"))
-        .sort(["DemocraticRating", "Track"], descending=[True, False])
-        .select("Track", "Level", "VoteCount", "MinRating", "MaxRating", "AvgRating", "DemocraticRating")
+        .join(corrected, on=["Track", "Level"], how="left")
+        .with_columns(pl.col("TrackRating").round(2).alias("MedianRating"))
+        .sort([scored_by, "Track"], descending=[True, False])
+        .select("Track", "Level", "VoteCount", "MinRating", "MaxRating", "MedianRating", "DemocraticRating")
     )
 
 
 if __name__ == "__main__":
     runs = pc.load_runs()
-    votes = track_votes()   # Fetched once and shared by both outputs
+    sheet = fetch_sheet()   # Fetched once and shared by all three outputs
+    votes = track_votes(sheet)
 
     elo = player_elo(runs, votes)
     elo.write_csv(ELO_OUTPUT)
@@ -71,6 +79,6 @@ if __name__ == "__main__":
     best.write_csv(TOP_RUNS_OUTPUT)
     print(f"Wrote top {best.height} runs to {TOP_RUNS_OUTPUT}")
 
-    ratings = track_ratings(runs, votes)
+    ratings = track_ratings(runs, sheet)
     ratings.write_csv(TRACK_RATINGS_OUTPUT)
     print(f"Wrote {ratings.height} track ratings to {TRACK_RATINGS_OUTPUT}")

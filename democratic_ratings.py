@@ -91,13 +91,14 @@ def voter_offsets(votes_df):
     return new_offsets.select("Voter", "VoteCount", "Offset").sort("Offset")
 
 
-def track_votes(sheet=None):
-    # One row per sheet track with its votes as a list (empty if nobody voted)
+def track_votes(sheet=None, correct_lean=CORRECT_VOTER_LEAN):
+    # One row per sheet track with its votes as a list (empty if nobody voted).
+    # correct_lean defaults to CORRECT_VOTER_LEAN, the setting scoring uses; pass it to get raw or corrected votes either way
     if sheet is None:
         sheet = fetch_sheet()
 
     votes = sheet_votes(sheet)
-    if CORRECT_VOTER_LEAN:
+    if correct_lean:
         # Offset-corrected, clamped to the track's raw vote range: the correction can move a rating
         # within what voters said, never outside it (four 9.0 votes can't make a track 8.98)
         votes = votes.join(voter_offsets(votes), on="Voter").with_columns(
