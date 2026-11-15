@@ -1,4 +1,3 @@
-
 import math
 import os
 
@@ -10,7 +9,7 @@ from democratic_ratings import track_votes
 # CONSTANTS
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------------
 RUN_DECAY = 0.95                   # Osu-style weighting: best run counts 100%, next 95%, then 90.25%... so padding with weak runs adds next to nothing
-MIN_RUNS = 7                       # Players need this many runs to be ranked. Also the cutoff amount of level X passes to be a level X rider
+MIN_RUNS = 7                       # Players need this many runs to be ranked. Also how many median level X passes make a level X rider
 
 # Ranks: (rank, effective level it starts at, Elo at that level). Elo is interpolated between rows; inside SSL it climbs toward ELO_AT_LEVEL_10
 ELO_AT_LEVEL_10 = 3350             # Elo of a level 10 rider: SSL is open-ended and gains 1000 Elo per level, so the very top spreads out
@@ -21,7 +20,7 @@ RANKS = [
     ("Gold",         4.0,  600),
     ("Platinum",     5.0,  900),
     ("Diamond",      6.0,  1200),
-    ("Champ",        7.3,  1500),  
+    ("Champ",        7.3,  1500),
     ("Grand Champ",  8.0,  1800),
     ("SSL",          8.75, 2100),  # About the top quarter of level 8 players, and anyone at level 9
 ]
@@ -40,7 +39,7 @@ LEVEL_STEPS = [
     (6,    5),
     (7,    10),                    # A median level 8 pass is worth 10 median level 7 passes
     (8,    20),                    # A median level 9 pass is worth 20 median level 8 passes
-    (9,    30),                    # A median level 10 pass is worth 40 median level 9 passes
+    (9,    30),                    # A median level 10 pass is worth 30 median level 9 passes
 ]
 
 
@@ -63,7 +62,7 @@ ZERO_FAULT_BONUS = [               # The 0f row, by track rating: harder tracks 
     (7,    1.233),
     (8,    1.256),
     (9,    1.278),
-    (10,   1.300),                 
+    (10,   1.300),
 ]
 FAULT_ANCHORS = [                  # The 0f row comes from ZERO_FAULT_BONUS
     (1,    0.66),
@@ -235,7 +234,6 @@ def run_level(track_rating, faults, median_faults, time, median_time):
 
 
 def add_run_scores(runs_df, votes_df=None):
-
     # Scores every row in the runs dataframe, adding TrackRating, RunLevel and RunScore columns
     if votes_df is None:
         votes_df = track_votes()
@@ -260,7 +258,7 @@ def add_run_scores(runs_df, votes_df=None):
 # Player Ratings
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-REFERENCE_WEIGHT = sum(RUN_DECAY**i for i in range(MIN_RUNS))   # ~8.03: the decayed weight of MIN_RUNS runs
+REFERENCE_WEIGHT = sum(RUN_DECAY**i for i in range(MIN_RUNS))   # ~6.03: the decayed weight of MIN_RUNS runs
 
 
 assert all(
@@ -280,7 +278,6 @@ def rank_from_level(effective_level):
 
 
 def player_scores(runs_df, votes_df=None):
-
     # Every run, best first with osu-style decay, summed into a PlayerScore, then effective level, Elo and Rank.
     # Everyone gets an Elo and a Rank; the caller decides who is ranked (MIN_RUNS)
     return (

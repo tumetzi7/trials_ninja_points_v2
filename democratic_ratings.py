@@ -1,4 +1,3 @@
-
 import io
 import sys
 import urllib.request
@@ -7,7 +6,7 @@ import polars as pl
 
 
 # CONSTANTS
-
+# --------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Community track-difficulty opinion sheet (Track, Level, Avg, #, then one column per voter)
 TRACK_RATINGS_SHEET_ID = "1gBv5KJDzXPCv_MgnghG8_GPwmJ309oVKJwmg9m2z2eg"
 TRACK_RATINGS_GID = 0
@@ -111,6 +110,7 @@ def track_votes(sheet=None):
         .join(votes.group_by("Track", "Level").agg(pl.col("Vote").alias("Votes")), on=["Track", "Level"], how="left")
         .with_columns(pl.col("Votes").fill_null(pl.lit([], dtype=pl.List(pl.Float64))))
     )
+
 
 if __name__ == "__main__":
     import points_calculator as pc   # Imported here; points_calculator imports this module at the top
