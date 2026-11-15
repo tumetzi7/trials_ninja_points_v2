@@ -1,0 +1,8 @@
+/.venv/
+/.venv-win/
+__pycache__/
+/path/
+.DS_Store
+
+# Local test data, not published
+*_fake.csv
