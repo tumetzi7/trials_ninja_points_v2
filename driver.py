@@ -13,7 +13,7 @@ from democratic_ratings import CORRECT_VOTER_LEAN, fetch_sheet, track_votes
 
 ELO_OUTPUT = "output/player_elo.csv"
 TOP_RUNS_OUTPUT = "output/top_runs.csv"
-TOP_RUNS_COUNT = 10
+TOP_RUNS_COUNT = 25
 TRACK_RATINGS_OUTPUT = "data/track_ratings.csv"
 
 

@@ -2,7 +2,7 @@
 
 A points and Elo leaderboard for Trials tracks of every level, from 1 to 10. The current data covers level 7, 8 and 9 tracks. Every recorded pass is scored by how hard the track is and how cleanly it was ridden. Each player's runs are then combined into an effective level, an Elo and a rank from Bronze to SSL.
 
-**Current results:** [player leaderboard](output/player_elo.csv) · [top 10 runs](output/top_runs.csv) · [track ratings](data/track_ratings.csv)
+**Current results:** [player leaderboard](output/player_elo.csv) · [top 25 runs](output/top_runs.csv) · [track ratings](data/track_ratings.csv)
 
 ## Running it
 
@@ -53,7 +53,7 @@ All of these numbers are constants at the top of `points_calculator.py`, each wi
 | `data/track_rating_overrides.csv` | Hand-set track ratings that override the sheet: `Track, Level, Rating` |
 | `data/track_ratings.csv` | Output: each track's vote count, min/max vote, `MedianRating` (median of the raw votes, used for scoring) and `DemocraticRating` (median after correcting each voter's lean, used instead if `CORRECT_VOTER_LEAN` is turned on). Overrides and the flat-level fallback apply to both. Sorted hardest first by the one in use |
 | `output/player_elo.csv` | Output: `Place, Player, Rank, Elo, Level, Runs, Ranked`. Players with fewer than 7 runs are listed with no place |
-| `output/top_runs.csv` | Output: the 10 highest-scoring individual runs |
+| `output/top_runs.csv` | Output: the 25 highest-scoring individual runs |
 
 ## Data rules
 
