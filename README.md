@@ -2,7 +2,7 @@
 
 A points and Elo leaderboard for Trials tracks of every level, from 1 to 10. The current data covers level 7, 8 and 9 tracks. Every recorded pass is scored by how hard the track is and how cleanly it was ridden. Each player's runs are then combined into an effective level, an Elo and a rank from Bronze to SSL.
 
-**Current results:** [player leaderboard](output/player_elo.csv) · [top 25 runs](output/top_runs.csv) · [track ratings](data/track_ratings.csv)
+**Current results:** [leaderboard page](index.html) · [player leaderboard](output/player_elo.csv) · [top 25 runs](output/top_runs.csv) · [track ratings](data/track_ratings.csv)
 
 ## Running it
 
@@ -13,7 +13,7 @@ pip install -r requirements.txt
 python driver.py
 ```
 
-This pulls the latest votes from the [track rating sheet](https://docs.google.com/spreadsheets/d/1gBv5KJDzXPCv_MgnghG8_GPwmJ309oVKJwmg9m2z2eg) and rewrites the three output files. The sheet currently lists level 8 and 9 tracks. The sheet has to stay viewable by anyone with the link. Because votes keep coming in, your results can differ from the committed files.
+This pulls the latest votes from the [track rating sheet](https://docs.google.com/spreadsheets/d/1gBv5KJDzXPCv_MgnghG8_GPwmJ309oVKJwmg9m2z2eg) and rewrites the three output files and the leaderboard page, `index.html`. The sheet currently lists level 8 and 9 tracks. The sheet has to stay viewable by anyone with the link. Because votes keep coming in, your results can differ from the committed files.
 
 To check the votes themselves (each voter's lean, and the rating each level 8 and 9 track is scored at), run:
 
@@ -54,6 +54,8 @@ All of these numbers are constants at the top of `points_calculator.py`, each wi
 | `data/track_ratings.csv` | Output: each track's vote count, min/max vote, `MedianRating` (median of the raw votes, used for scoring) and `DemocraticRating` (median after correcting each voter's lean, used instead if `CORRECT_VOTER_LEAN` is turned on). Overrides and the flat-level fallback apply to both. Sorted hardest first by the one in use |
 | `output/player_elo.csv` | Output: `Place, Player, Rank, Elo, Level, Runs, Ranked`. Players with fewer than 7 runs are listed with no place |
 | `output/top_runs.csv` | Output: the 25 highest-scoring individual runs |
+| `build_site.py` | Builds `index.html` from `site/template.html` with the current results baked in. `driver.py` runs it, or run `python build_site.py` on its own |
+| `index.html` | Output: the leaderboard page. Players by Elo, every scored run, and a faults-then-time leaderboard for each track. Open it in a browser; it needs no server |
 
 ## Data rules
 

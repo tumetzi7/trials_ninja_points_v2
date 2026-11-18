@@ -1,28 +1,27 @@
 Place,Player,Rank,Elo,Level,Runs,Ranked
-1,Sly_GT4,SSL,2781,9.43,134,true
+1,Sly_GT4,SSL,2778,9.43,133,true
 2,[yaoi] ModRev2020,SSL,2730,9.38,94,true
 3,MayaQK,SSL,2618,9.27,65,true
-4,[QK] RandallQK,SSL,2518,9.17,87,true
+4,[QK] RandallQK,SSL,2517,9.17,87,true
 5,Sly_Preda,SSL,2487,9.14,106,true
 6,NoviceQk,SSL,2444,9.09,53,true
 7,[C] Scottah-,SSL,2293,8.94,57,true
 8,[yaoi] InfernoTrials,SSL,2289,8.94,38,true
 9,[QK] MercuryQK,SSL,2258,8.91,62,true
 10,PennyJX,SSL,2143,8.79,32,true
-11,[QK] LivingLegend3D,SSL,2115,8.76,108,true
+11,[QK] LivingLegend3D,SSL,2114,8.76,108,true
 12,Danimalls,Grand Champ,2060,8.65,135,true
 13,[QK] DarkMoonV_,Grand Champ,2010,8.52,42,true
 14,JoS.lyde,Grand Champ,1959,8.4,64,true
 15,JakeQK,Grand Champ,1934,8.34,26,true
 16,Skilbobaggins,Grand Champ,1906,8.27,24,true
-,[Evil] IBlubbiI,Grand Champ,1906,8.26,3,false
 17,OchrDywyllFawr,Grand Champ,1902,8.25,24,true
 18,AZB_Meister,Grand Champ,1896,8.24,35,true
 19,[CHUD] E-kitten-abuser,Grand Champ,1891,8.23,35,true
 20,Clashh...,Grand Champ,1883,8.21,65,true
 21,[QK] massivecrow77,Grand Champ,1876,8.19,18,true
 22,[Pepe] Sethie.,Grand Champ,1853,8.13,18,true
-23,[QK] v_HaroS.,Grand Champ,1848,8.12,25,true
+23,[QK] v_HaroS.,Grand Champ,1847,8.12,25,true
 24,ZarZrak,Grand Champ,1824,8.06,49,true
 25,kie2k8,Grand Champ,1810,8.02,47,true
 26,Real_Seven,Champ,1786,7.97,55,true
@@ -37,7 +36,7 @@ Place,Player,Rank,Elo,Level,Runs,Ranked
 34,[Wesh] JuAnEss.,Champ,1646,7.64,21,true
 35,Colberton_,Champ,1635,7.62,13,true
 36,Aremata,Champ,1626,7.59,12,true
-37,RM_Feniks,Champ,1608,7.55,19,true
+37,RM_Feniks,Champ,1607,7.55,19,true
 38,NinjaFlows69,Champ,1585,7.5,15,true
 39,DarkSword_AP,Champ,1583,7.49,15,true
 40,C0in-C0in.,Champ,1517,7.34,21,true
@@ -70,6 +69,7 @@ Place,Player,Rank,Elo,Level,Runs,Ranked
 ,W0VA,Diamond,1313,6.49,3,false
 ,[Wesh] Vaylon.,Diamond,1312,6.49,3,false
 ,ThoomWard,Diamond,1307,6.46,3,false
+,[Evil] IBlubbiI,Diamond,1296,6.42,2,false
 ,Cresiix,Diamond,1263,6.27,2,false
 ,xScoped.,Diamond,1261,6.26,2,false
 ,geshimin,Diamond,1260,6.26,2,false

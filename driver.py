@@ -1,10 +1,11 @@
 import polars as pl
 
 import points_calculator as pc
+from build_site import SITE_OUTPUT, build_site
 from democratic_ratings import CORRECT_VOTER_LEAN, fetch_sheet, track_votes
 
 
-# Writes three CSVs:
+# Writes index.html (the leaderboard page, see build_site.py) and three CSVs:
 #   output/player_elo.csv - Every player's rank and Elo: Place, Player, Rank, Elo, Level (effective level), Runs, Ranked
 #   output/top_runs.csv - The best runs by points: Rank, Player, Track, Faults, Points
 #   data/track_ratings.csv - Every track's vote spread and both candidate ratings: Track, Level, VoteCount, MinRating, MaxRating, MedianRating, DemocraticRating
@@ -82,3 +83,6 @@ if __name__ == "__main__":
     ratings = track_ratings(runs, sheet)
     ratings.write_csv(TRACK_RATINGS_OUTPUT)
     print(f"Wrote {ratings.height} track ratings to {TRACK_RATINGS_OUTPUT}")
+
+    build_site(runs, votes, elo)
+    print(f"Wrote the leaderboard page to {SITE_OUTPUT}")
