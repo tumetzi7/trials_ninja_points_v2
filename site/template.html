@@ -215,9 +215,23 @@ th.num { font-family: var(--font-body); }
 .lv-top > span { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .lv-top b { font-family: var(--font-data); font-weight: 600; font-size: 18px; font-variant-numeric: tabular-nums; }
 .lv-top b span { color: var(--muted); font-weight: 500; font-size: 14px; }
-.lv-bar { height: 6px; border-radius: 3px; background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; }
+.lv-bar { display: block; height: 6px; border-radius: 3px; background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; }
 .lv-bar i { display: block; height: 100%; background: var(--accent); }
 .lv.full { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+button.lv { text-align: left; cursor: pointer; transition: border-color .15s, background .15s; }
+button.lv:hover:not(:disabled) { border-color: var(--accent); }
+button.lv[aria-expanded="true"] { border-color: var(--accent); background: var(--accent-soft); }
+button.lv:disabled { cursor: default; }
+.lv-hint { font-size: 12px; color: var(--muted); font-weight: 500; }
+button.lv[aria-expanded="true"] .lv-hint, button.lv:hover:not(:disabled) .lv-hint { color: var(--accent); }
+.missing { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; display: grid; gap: 10px; }
+.missing-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.missing-head b { font-family: var(--font-display); font-size: 18px; font-weight: 700; text-transform: uppercase; letter-spacing: .01em; }
+.missing-head span { color: var(--muted); font-size: 13px; }
+.missing ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 0 20px; }
+.missing li { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); min-width: 0; }
+.missing li a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.missing li span { font-family: var(--font-data); font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
 .note { color: var(--muted); font-size: 13px; margin: 12px 2px 0; }
 
 footer { color: var(--muted); font-size: 13px; padding-block: 0 40px; }
@@ -337,7 +351,7 @@ footer p { margin: 0; max-width: 65ch; }
   const faults = f => `<span class="flt${f === 0 ? " zero" : ""}"${f === 0 ? ' title="Zero faults"' : ""}>${f}</span>`;
 
   // State
-  const state = { q: "", unranked: true, runsShown: 100, levels: new Set(), trackLimit: {} };
+  const state = { q: "", unranked: true, runsShown: 100, levels: new Set(), missing: null };
   try { const s = JSON.parse(localStorage.getItem("np-prefs") || "{}"); if (typeof s.unranked === "boolean") state.unranked = s.unranked; } catch (e) {}
   const savePrefs = () => { try { localStorage.setItem("np-prefs", JSON.stringify({ unranked: state.unranked })); } catch (e) {} };
   const match = (...fields) => !state.q || fields.some(f => f.toLowerCase().includes(state.q));
@@ -482,11 +496,21 @@ footer p { margin: 0; max-width: 65ch; }
         </div>
         <div class="levels">${levelsDesc.map(l => {
           const done = new Set(p.runs.filter(r => r.Level === l).map(r => r.Track)).size, total = levelTotals[l];
-          return `<div class="lv${done === total ? " full" : ""}">
-            <div class="lv-top"><span>Level ${l}s</span><b>${done}<span>/${total}</span></b></div>
-            <div class="lv-bar"><i style="width:${(done / total * 100).toFixed(1)}%"></i></div>
-          </div>`;
+          const open = state.missing === l;
+          return `<button class="lv${done === total ? " full" : ""}" data-missing="${l}" aria-expanded="${open}" ${done === total ? "disabled" : ""}>
+            <span class="lv-top"><span>Level ${l}s</span><b>${done}<span>/${total}</span></b></span>
+            <span class="lv-bar"><i style="width:${(done / total * 100).toFixed(1)}%"></i></span>
+            <small class="lv-hint">${done === total ? "All passed" : `${total - done} missing <span aria-hidden="true">${open ? "&#9652;" : "&#9662;"}</span>`}</small>
+          </button>`;
         }).join("")}</div>
+        ${state.missing != null ? (() => {
+          const have = new Set(p.runs.map(r => r.t));
+          const miss = trackList.filter(t => t.Level === state.missing && !have.has(t));
+          return miss.length ? `<div class="missing">
+            <div class="missing-head"><b>Missing level ${state.missing}s</b><span>${miss.length} tracks, hardest first</span></div>
+            <ul>${miss.map(t => `<li><a class="lnk" href="#${t.slug}">${esc(t.Track)}</a><span>${t.Rating.toFixed(2)}</span></li>`).join("")}</ul>
+          </div>` : "";
+        })() : ""}
       </section>
       <div class="card"><div class="scroll"><table>
         <thead><tr><th>Track</th><th class="num">Faults</th><th class="num hide-sm">Time</th><th class="num">Place</th><th class="num">Points</th></tr></thead>
@@ -517,13 +541,19 @@ footer p { margin: 0; max-width: 65ch; }
   }
 
   $("#q").addEventListener("input", e => { state.q = e.target.value.trim().toLowerCase(); state.runsShown = 100; render(); });
-  window.addEventListener("hashchange", () => { state.q = ""; $("#q").value = ""; state.runsShown = 100; render(); });
+  window.addEventListener("hashchange", () => { state.q = ""; $("#q").value = ""; state.runsShown = 100; state.missing = null; render(); });
   $("#app").addEventListener("click", e => {
     const b = e.target.closest("button");
     if (!b) return;
     if (b.id === "tg-unranked") { state.unranked = !state.unranked; savePrefs(); render(); }
     else if (b.id === "more-runs") { state.runsShown += 100; render(); }
     else if (b.id === "all-runs") { state.runsShown = Infinity; render(); }
+    else if (b.dataset.missing) {
+      const l = +b.dataset.missing;
+      state.missing = state.missing === l ? null : l;
+      render();
+      $(`button[data-missing="${l}"]`)?.focus();
+    }
     else if (b.dataset.level) { const l = +b.dataset.level; state.levels.has(l) ? state.levels.delete(l) : state.levels.add(l); render(); }
   });
 
