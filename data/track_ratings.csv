@@ -1,9 +1,9 @@
 Track,Level,VoteCount,MinRating,MaxRating,MedianRating,DemocraticRating
-Claymore,9,1,9.4,9.4,9.5,9.5
-Anomaly*,9,2,9.4,9.45,9.43,9.44
+Claymore,9,2,9.4,9.5,9.5,9.5
+Anomaly*,9,3,9.4,9.45,9.4,9.44
 Steel Wave,9,2,9.4,9.4,9.4,9.4
 Hattusa*,9,3,9.2,9.3,9.25,9.29
-Final Sorrow,9,6,9.0,9.2,9.15,9.16
+Final Sorrow,9,7,9.0,9.3,9.2,9.18
 Deviant,9,4,9.0,9.1,9.0,9.02
 SP- Rapture,9,5,9.0,9.0,9.0,9.0
 Whitespire*,9,3,9.0,9.1,9.0,9.05
@@ -14,22 +14,22 @@ Sinister,8,5,8.9,9.0,8.9,8.94
 Adventurous,8,5,8.8,8.9,8.8,8.84
 DNA,8,6,8.5,8.9,8.8,8.82
 Lonely*,8,6,8.7,8.8,8.75,8.74
-OPERATION: Neon Bullet,8,6,8.6,8.8,8.75,8.76
 Anhedonia*,8,1,8.7,8.7,8.7,8.7
+OPERATION: Neon Bullet,8,7,8.6,8.8,8.7,8.75
 Faith,8,7,8.5,8.7,8.6,8.64
 Techfinity,8,6,8.5,8.7,8.6,8.59
 Darko [<3],8,10,8.3,8.7,8.55,8.56
 Gladius,8,7,8.3,8.7,8.5,8.47
-Jessamine [<3],8,7,8.3,8.7,8.5,8.54
+Jessamine [<3],8,7,8.3,8.6,8.5,8.54
 Nanga Parbat [7],8,5,8.4,8.6,8.5,8.45
 Nutritious III,8,9,8.4,8.7,8.5,8.55
 Ramrod,8,7,8.4,8.7,8.5,8.51
 Fractured**,8,8,8.3,8.6,8.45,8.45
 Purple Moon,8,2,8.4,8.5,8.45,8.45
 Golem,8,9,8.3,8.6,8.4,8.45
-King Pin 2,8,9,8.3,8.5,8.4,8.41
+King Pin 2,8,10,8.1,8.5,8.4,8.4
 Monochrome,8,10,8.2,8.6,8.4,8.43
-Singularity,8,9,8.3,8.5,8.4,8.39
+Singularity,8,10,8.3,8.5,8.4,8.4
 Victorious *,8,10,8.1,8.6,8.4,8.38
 Wraith,8,13,8.1,8.4,8.4,8.38
 [TFA] Pliff Plaugh*,8,6,8.3,8.5,8.4,8.41
