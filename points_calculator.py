@@ -311,8 +311,26 @@ def rank_from_level(effective_level):
     return f"{rank} {RANK_TIERS[tier]}"
 
 
+def level_cap(highest_level_passed):
+    # Rank gate: no rank above the rank of the highest official level passed (Mythic needs a level 9 pass). Breadth still counts inside that rank,
+    # but a rider's effective level is held under (highest level passed + 1) for Elo and Rank
+    return highest_level_passed + 1
+
+
+def gated_elo(effective_level, highest_level_passed):
+    # Elo, held at the top of the highest rank the rider's passes allow (2499 for someone whose hardest pass is level 8)
+    cap = level_cap(highest_level_passed)
+    return elo_from_level(effective_level) if effective_level < cap else elo_from_level(cap) - 1
+
+
+def gated_rank(effective_level, highest_level_passed):
+    # Rank, held at the top tier of the highest rank the rider's passes allow
+    return rank_from_level(min(effective_level, level_cap(highest_level_passed) - 1e-9))
+
+
 def player_scores(runs_df, votes_df=None):
     # Every run, best first with osu-style decay, summed into a PlayerScore, then effective level, Elo and Rank.
+    # EffectiveLevel is the uncapped score; Elo and Rank are gated by the highest official level passed (level_cap).
     # Everyone gets an Elo and a Rank; the caller decides who is ranked (MIN_RUNS)
     return (
         add_run_scores(runs_df, votes_df)
@@ -321,6 +339,7 @@ def player_scores(runs_df, votes_df=None):
         .group_by("Player")
         .agg(
             pl.len().alias("Runs"),
+            pl.col("Level").max().alias("HighestLevel"),
             (pl.col("RunScore") * RUN_DECAY ** pl.col("RunRank")).sum().alias("PlayerScore"),
         )
         .with_columns(
@@ -329,8 +348,12 @@ def player_scores(runs_df, votes_df=None):
             .alias("EffectiveLevel")
         )
         .with_columns(
-            pl.col("EffectiveLevel").map_elements(elo_from_level, return_dtype=pl.Int64).alias("Elo"),
-            pl.col("EffectiveLevel").map_elements(rank_from_level, return_dtype=pl.Utf8).alias("Rank"),
+            pl.struct(["EffectiveLevel", "HighestLevel"])
+            .map_elements(lambda r: gated_elo(r["EffectiveLevel"], r["HighestLevel"]), return_dtype=pl.Int64)
+            .alias("Elo"),
+            pl.struct(["EffectiveLevel", "HighestLevel"])
+            .map_elements(lambda r: gated_rank(r["EffectiveLevel"], r["HighestLevel"]), return_dtype=pl.Utf8)
+            .alias("Rank"),
         )
         .sort("PlayerScore", descending=True)
     )

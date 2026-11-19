@@ -28,7 +28,7 @@ python democratic_ratings.py
 3. **Faults.** Faults move a run's points by a percentage of its worth, soft-capped by track rating, since low faults on the hardest, least consistent tracks are partly luck. The cap is ±10% from level 9 up and widens by 5% per level down (±15% at 8, ±20% at 7, up to ±50% at level 1). A median run keeps exactly its worth, half or double the median faults move it the same amount either way, and nothing passes the cap.
 4. **Flawless runs.** A 0f run also scores as if its track were rated higher, by 1.1 levels at level 1 rising evenly to 1.3 at level 10. The bonus fades out by 5% of the track's median faults (on a 100-fault track, 1f keeps 4/5 of it, 2f 3/5, and 5f none), so near-flawless runs don't fall off a cliff.
 5. **Player score.** A player's runs are summed best first, osu-style: the best run counts 100%, the next 95%, then 90.25%, and so on. Padding with weak runs adds little.
-6. **Effective level, Elo and rank.** The score is converted back to an effective level, then to an Elo and a rank. There's one rank per whole level. A player needs at least 7 runs to be ranked.
+6. **Effective level, Elo and rank.** The score is converted back to an effective level, then to an Elo and a rank. There's one rank per whole level. A player needs at least 7 runs to be ranked. Ranks are gated by the hardest official level passed: no one ranks above the rank of that level (Mythic needs a level 9 pass), and Elo is held at the top of that rank. The effective level shown is the ungated score.
 
 | Rank | Effective level | Elo at start |
 |---|---|---|
