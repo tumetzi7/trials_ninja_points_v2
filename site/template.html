@@ -23,6 +23,7 @@
   --silver: #6f7a8c;
   --bronze: #9a5a2c;
 
+  --r-iron: #5f646d;
   --r-bronze: #a5622f;
   --r-silver: #7c8799;
   --r-gold: #b58900;
@@ -30,7 +31,7 @@
   --r-diamond: #2f74d0;
   --r-champ: #7d43c9;
   --r-gc: #c0327e;
-  --r-ssl: #c24a00;
+  --r-mythic: #c24a00;
 
   --font-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
   --font-body: "Barlow", "Segoe UI", system-ui, sans-serif;
@@ -41,14 +42,14 @@
   :root:not([data-theme="light"]) {
     --bg: #0d1119; --surface: #151b26; --surface-2: #1b2230; --fg: #e9ecf2; --muted: #8e97a9; --line: #263042;
     --accent: #ffad33; --accent-soft: #3a2a12; --gold: #f2c14e; --silver: #c3cad6; --bronze: #d99361;
-    --r-bronze: #d18a55; --r-silver: #aeb8c8; --r-gold: #e8bb3a; --r-plat: #4fd1c1; --r-diamond: #6aa8ff; --r-champ: #b48bff; --r-gc: #ff6fb8; --r-ssl: #ffad33;
+    --r-iron: #9aa0aa; --r-bronze: #d18a55; --r-silver: #aeb8c8; --r-gold: #e8bb3a; --r-plat: #4fd1c1; --r-diamond: #6aa8ff; --r-champ: #b48bff; --r-gc: #ff6fb8; --r-mythic: #ffad33;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #0d1119; --surface: #151b26; --surface-2: #1b2230; --fg: #e9ecf2; --muted: #8e97a9; --line: #263042;
   --accent: #ffad33; --accent-soft: #3a2a12; --gold: #f2c14e; --silver: #c3cad6; --bronze: #d99361;
-  --r-bronze: #d18a55; --r-silver: #aeb8c8; --r-gold: #e8bb3a; --r-plat: #4fd1c1; --r-diamond: #6aa8ff; --r-champ: #b48bff; --r-gc: #ff6fb8; --r-ssl: #ffad33;
+  --r-iron: #9aa0aa; --r-bronze: #d18a55; --r-silver: #aeb8c8; --r-gold: #e8bb3a; --r-plat: #4fd1c1; --r-diamond: #6aa8ff; --r-champ: #b48bff; --r-gc: #ff6fb8; --r-mythic: #ffad33;
   color-scheme: dark;
 }
 
@@ -176,8 +177,8 @@ th.num { font-family: var(--font-body); }
   border: 1px solid color-mix(in srgb, var(--rc) 35%, transparent);
 }
 .rank::before { content: ""; width: 7px; height: 7px; border-radius: 2px; background: var(--rc); transform: rotate(45deg); }
-.r-Bronze { --rc: var(--r-bronze); } .r-Silver { --rc: var(--r-silver); } .r-Gold { --rc: var(--r-gold); } .r-Platinum { --rc: var(--r-plat); }
-.r-Diamond { --rc: var(--r-diamond); } .r-Champ { --rc: var(--r-champ); } .r-Grand-Champ { --rc: var(--r-gc); } .r-SSL { --rc: var(--r-ssl); }
+.r-Iron { --rc: var(--r-iron); } .r-Bronze { --rc: var(--r-bronze); } .r-Silver { --rc: var(--r-silver); } .r-Gold { --rc: var(--r-gold); } .r-Platinum { --rc: var(--r-plat); }
+.r-Diamond { --rc: var(--r-diamond); } .r-Champ { --rc: var(--r-champ); } .r-Grand-Champ { --rc: var(--r-gc); } .r-Mythic { --rc: var(--r-mythic); }
 .prov { font-size: 11px; color: var(--muted); border: 1px dashed var(--line); border-radius: 999px; padding: 1px 7px; margin-left: 6px; font-weight: 500; }
 
 .flt { font-family: var(--font-data); }
@@ -345,7 +346,8 @@ footer p { margin: 0; max-width: 65ch; }
   ].map(([n, l]) => `<div class="stat"><b>${fmtInt(n)}</b><small>${l}</small></div>`).join("");
 
   // Pieces
-  const rankChip = r => `<span class="rank r-${esc(r.replace(/ /g, "-"))}">${esc(r)}</span>`;
+  const rankClass = r => `r-${esc(r.replace(/ (I|II|III)$/, "").replace(/ /g, "-"))}`;   // Tier (I, II, III) shares its rank's colour
+  const rankChip = r => `<span class="rank ${rankClass(r)}">${esc(r)}</span>`;
   const pLink = p => p ? `<a class="lnk" href="#${p.slug}">${esc(p.Player)}</a>` : "";
   const tLink = t => `<a class="lnk trk" href="#${t.slug}">${esc(t.Track)}<span class="lvl">L${t.Level}</span></a>`;
   const faults = f => `<span class="flt${f === 0 ? " zero" : ""}"${f === 0 ? ' title="Zero faults"' : ""}>${f}</span>`;
@@ -366,7 +368,7 @@ footer p { margin: 0; max-width: 65ch; }
         <td class="pos${p.Ranked ? posClass(p.Place) : ""}">${p.Ranked ? p.Place : "&ndash;"}</td>
         <td class="name">${pLink(p)}${p.Ranked ? "" : '<span class="prov">unranked</span>'}</td>
         <td>${rankChip(p.Rank)}</td>
-        <td class="num"><div class="elo r-${esc(p.Rank.replace(/ /g, "-"))}"><span class="meter"><i style="width:${(p.Elo / maxElo * 100).toFixed(1)}%"></i></span><b>${fmtInt(p.Elo)}</b></div></td>
+        <td class="num"><div class="elo ${rankClass(p.Rank)}"><span class="meter"><i style="width:${(p.Elo / maxElo * 100).toFixed(1)}%"></i></span><b>${fmtInt(p.Elo)}</b></div></td>
         <td class="num hide-sm">${p.Level.toFixed(2)}</td>
         <td class="num hide-sm">${p.Runs}</td>
       </tr>`).join("");

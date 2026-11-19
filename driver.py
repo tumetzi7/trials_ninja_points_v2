@@ -19,7 +19,7 @@ TRACK_RATINGS_OUTPUT = "data/track_ratings.csv"
 
 
 def player_elo(runs_df, votes_df=None):
-    # Everyone gets an Elo and a Rank (Bronze to SSL); players under MIN_RUNS are listed as unranked (provisional, no Place)
+    # Everyone gets an Elo and a Rank (Iron to Mythic and up); players under MIN_RUNS are listed as unranked (provisional, no Place)
     ranked = pl.col("Runs") >= pc.MIN_RUNS
     return (
         pc.player_scores(runs_df, votes_df)

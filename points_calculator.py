@@ -11,72 +11,82 @@ from democratic_ratings import track_votes
 RUN_DECAY = 0.95                   # Osu-style weighting: best run counts 100%, next 95%, then 90.25%... so padding with weak runs adds next to nothing
 MIN_RUNS = 7                       # Players need this many runs to be ranked. Also how many median level X passes make a level X rider
 
-# Ranks: (rank, effective level it starts at, Elo at that level). Elo is interpolated between rows; inside SSL it climbs toward ELO_AT_LEVEL_10
-ELO_AT_LEVEL_10 = 3350             # Elo of a level 10 rider: SSL is open-ended and gains 1000 Elo per level, so the very top spreads out
-
+# Ranks: (rank, effective level it starts at). One rank per whole level; the last row is open-ended and untiered
 RANKS = [
-    ("Bronze",       1.0,  0),
-    ("Silver",       2.0,  300),
-    ("Gold",         4.0,  600),
-    ("Platinum",     5.0,  900),
-    ("Diamond",      6.0,  1200),
-    ("Champ",        7.3,  1500),
-    ("Grand Champ",  8.0,  1800),
-    ("SSL",          8.75, 2100),  # About the top quarter of level 8 players, and anyone at level 9
+    ("Iron",         1.0),
+    ("Bronze",       2.0),
+    ("Silver",       3.0),
+    ("Gold",         4.0),
+    ("Platinum",     5.0),
+    ("Diamond",      6.0),
+    ("Champ",        7.0),
+    ("Grand Champ",  8.0),
+    ("Mythic",       9.0),
+    ("Divine",       9 + 5 / 6),   # 3000 Elo
+]
+
+RANK_TIERS = ["I", "II", "III"]    # Each rank but the last splits into equal tiers by effective level, III the highest (Champ I starts at 7.0, II at 7.33, III at 7.67)
+
+# Elo: (effective level, Elo), interpolated between rows. Each rank is a 300 Elo band up to Champ; bands widen above that so the top spreads out
+# (Grand Champ 400, then wider), and the last line carries on above level 10 at 600 Elo per level
+ELO_CURVE = [
+    (1.0,  0),                     # Iron
+    (2.0,  300),                   # Bronze
+    (3.0,  600),                   # Silver
+    (4.0,  900),                   # Gold
+    (5.0,  1200),                  # Platinum
+    (6.0,  1500),                  # Diamond
+    (7.0,  1800),                  # Champ
+    (8.0,  2100),                  # Grand Champ
+    (9.0,  2500),                  # Mythic
+    (10.0, 3100),                  # Level 10
 ]
 
 MAX_FAULTS = 499                   # Game cap: 500f = fault out
 MAX_TIME = (30 * 60 * 1000) - 1    # Game cap: 29:59.999 in ms
 
-# Level worth: (level, how many median passes of that level one median pass a level higher is worth). The first row's level is worth 1 point
+# Level worth: (level, how many median passes of that level one median pass a level higher is worth). Points are scaled by POINTS_AT_LEVEL_8
 # Worth climbs at a steady rate between whole levels; the first row's step carries on below it and the last row's above it
 LEVEL_STEPS = [
-    (1,    2),
-    (2,    2),
-    (3,    2),
-    (4,    2),
-    (5,    2),
+    (1,    5),                     # Steps of 5 below level 7 keep padding with easy passes worth about as little as at the top
+    (2,    5),
+    (3,    5),
+    (4,    5),
+    (5,    5),
     (6,    5),
-    (7,    10),                    # A median level 8 pass is worth 10 median level 7 passes
-    (8,    20),                    # A median level 9 pass is worth 20 median level 8 passes
-    (9,    30),                    # A median level 10 pass is worth 30 median level 9 passes
+    (7,    6),                     # A median level 8 pass is worth 6 median level 7 passes
+    (8,    8),                     # A median level 9 pass is worth 8 median level 8 passes
+    (9,    10),                    # A median level 10 pass is worth 10 median level 9 passes
 ]
 
 
 # FAULT & TIME SCALING
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------------
 '''
-Fault shift, in levels: A run is scored as if its track were rated this much higher (or lower).
-Each row assigns one achievement to a level: (faults, levels above a median pass). Edit a row to move that achievement on its own; rows in between are interpolated.
-Fault counts are for a typical track, one whose median pass has 100 faults. Other tracks scale the fault column in proportion, so 0f and the track's own
-median always land on the 0f row and the 0.00 row (25f on a 50-fault track counts as 50f; 25f on a 200-fault track counts as 12.5f).
+Faults move a run's points by a percentage, soft-capped by track rating: low-fault runs are partly luck, more so on harder, less consistent tracks.
+  points = track worth x (1 + cap x tanh(FAULT_STEEPNESS x ln(median faults / faults)))
+A median run gets exactly the track's worth; half or double the median move it the same amount either way; nothing passes +-cap.
+Flawless runs are the exception: a 0f run is also scored as if its track were rated ZERO_FAULT_BONUS levels higher. That bonus
+fades out by ZERO_FAULT_TAPER of the track's median faults (on a 100-fault track: 1f keeps 4/5, 2f 3/5 ... 5f none) so near-0f runs don't fall off a cliff.
 '''
 
-ZERO_FAULT_BONUS = [               # The 0f row, by track rating: harder tracks earn a bigger flawless bonus; interpolated between rows
-    (1,    1.100),
-    (2,    1.122),
-    (3,    1.144),
-    (4,    1.167),
-    (5,    1.189),
-    (6,    1.211),
-    (7,    1.233),
-    (8,    1.256),
-    (9,    1.278),
-    (10,   1.300),
+FAULT_CAP = [                      # (track rating, most faults can add or remove, as a share of the run's points); +5% per level down, flat at 10% from level 9 up
+    (1,    0.50),
+    (2,    0.45),
+    (3,    0.40),
+    (4,    0.35),
+    (5,    0.30),
+    (6,    0.25),
+    (7,    0.20),                  # Lower levels are more consistent, so fault differences say more about skill and earn more
+    (8,    0.15),
+    (9,    0.10),                  # The hardest tracks: low faults are mostly luck
 ]
-FAULT_ANCHORS = [                  # The 0f row comes from ZERO_FAULT_BONUS
-    (1,    0.66),
-    (2,    0.52),
-    (3,    0.46),
-    (4,    0.41),
-    (5,    0.37),
-    (10,   0.28),
-    (25,   0.18),
-    (50,   0.10),
-    (100,  0.00),                  # The median pass; must stay 0 so a median run earns exactly the track's worth
-    (200, -0.05),
-    (290, -0.10),                  # Last row is the floor: the worst runs score as a track 0.1 levels easier
+FAULT_STEEPNESS = 1.3              # How fast the cap is approached: higher spreads runs near the median further apart
+ZERO_FAULT_BONUS = [               # Levels added to a 0f run, by track rating: rises evenly from 1.1 at level 1 to 1.3 at level 10 (+0.0022 per 0.1)
+    (1,    1.10),
+    (10,   1.30),
 ]
+ZERO_FAULT_TAPER = 0.05            # The 0f bonus fades to nothing by this share of the track's median faults (5f on a 100-fault track, 2.5f on a 50)
 FAULT_MEDIAN_PRIOR_RUNS = 5        # Track fault medians are pulled toward the level median as if it were 5 extra runs
 
 # Time shift, in levels: TIME_SHIFT_MAX times how much faster than the track median the run was (half the median time = +0.005); slower runs lose the same way
@@ -137,15 +147,18 @@ LEVEL_LOG_WORTH = [(LEVEL_STEPS[0][0], 0.0)]
 for level, step in LEVEL_STEPS:
     LEVEL_LOG_WORTH.append((level + 1, LEVEL_LOG_WORTH[-1][1] + math.log(step)))
 
+POINTS_AT_LEVEL_8 = 1000           # Display scale only: a median level 8 pass is worth this many points. Rankings don't depend on it
+POINTS_SCALE = POINTS_AT_LEVEL_8 / math.exp(interpolate(8, LEVEL_LOG_WORTH))
+
 
 def level_scaler(level):
     # Points a median pass on a track of this rating is worth
-    return math.exp(interpolate(level, LEVEL_LOG_WORTH))
+    return POINTS_SCALE * math.exp(interpolate(level, LEVEL_LOG_WORTH))
 
 
 def level_from_worth(worth):
     # Inverse of level_scaler
-    return interpolate(math.log(worth), [(log_worth, level) for level, log_worth in LEVEL_LOG_WORTH])
+    return interpolate(math.log(worth / POINTS_SCALE), [(log_worth, level) for level, log_worth in LEVEL_LOG_WORTH])
 
 
 # Track Ratings
@@ -206,21 +219,30 @@ def track_medians(runs_df):
 # Run Scaling
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-assert FAULT_ANCHORS[0][0] > 0, "FAULT_ANCHORS must not have a 0f row; that comes from ZERO_FAULT_BONUS"
-assert all(
-    bonus > FAULT_ANCHORS[0][1] for _, bonus in ZERO_FAULT_BONUS
-), "ZERO_FAULT_BONUS must beat the first FAULT_ANCHORS row, or 0f could score below 1f"
-assert (100, 0.0) in FAULT_ANCHORS, "FAULT_ANCHORS needs a (100, 0.00) row: the track's median pass"
-assert all(
-    f1 < f2 and s1 > s2 for (f1, s1), (f2, s2) in zip(FAULT_ANCHORS, FAULT_ANCHORS[1:])
-), "FAULT_ANCHORS: faults must rise and shifts must fall row by row, or fewer faults could score lower"
+assert all(bonus > 0 for _, bonus in ZERO_FAULT_BONUS), "ZERO_FAULT_BONUS must be positive, or 0f could score below 1f"
+assert all(0 <= cap < 1 for _, cap in FAULT_CAP), "FAULT_CAP shares must be between 0 and 1"
 
 
-def fault_scaler(faults, median_faults, track_rating):
-    # Level shift read off FAULT_ANCHORS, with faults counted per 100 of the track's median; anything past the last row scores as the last row.
-    # The 0f row is this track's ZERO_FAULT_BONUS
-    percent = min(100 * faults / median_faults, FAULT_ANCHORS[-1][0])
-    return interpolate(percent, [(0, interpolate(track_rating, ZERO_FAULT_BONUS))] + FAULT_ANCHORS)
+def fault_cap(track_rating):
+    # This track's FAULT_CAP share, flat past the table's ends
+    if track_rating <= FAULT_CAP[0][0]:
+        return FAULT_CAP[0][1]
+    if track_rating >= FAULT_CAP[-1][0]:
+        return FAULT_CAP[-1][1]
+    return interpolate(track_rating, FAULT_CAP)
+
+
+def fault_multiplier(faults, median_faults, track_rating):
+    # Share of the track's worth a run keeps for its faults: 1.0 at the median, never past 1 +- the track's cap
+    if faults == 0:
+        return 1 + fault_cap(track_rating)
+    return 1 + fault_cap(track_rating) * math.tanh(FAULT_STEEPNESS * math.log(median_faults / faults))
+
+
+def zero_fault_shift(faults, median_faults, track_rating):
+    # Levels added for a flawless run, fading to 0 by ZERO_FAULT_TAPER of the track's median faults
+    bonus = interpolate(min(max(track_rating, ZERO_FAULT_BONUS[0][0]), ZERO_FAULT_BONUS[-1][0]), ZERO_FAULT_BONUS)
+    return max(0.0, 1 - faults / (ZERO_FAULT_TAPER * median_faults)) * bonus
 
 
 def time_scaler(time, median_time):
@@ -229,8 +251,13 @@ def time_scaler(time, median_time):
 
 
 def run_level(track_rating, faults, median_faults, time, median_time):
-    # The level a run is scored at: faults and time both shift the track's rating. A median run lands exactly on the track's rating
-    return track_rating + fault_scaler(faults, median_faults, track_rating) + time_scaler(time, median_time)
+    # The level a run is scored at: the track's rating, nudged by time and raised for near-flawless runs. Other faults act on points instead
+    return track_rating + zero_fault_shift(faults, median_faults, track_rating) + time_scaler(time, median_time)
+
+
+def run_score(track_rating, faults, median_faults, time, median_time):
+    # Points for one run: the worth of its level, scaled by its faults
+    return level_scaler(run_level(track_rating, faults, median_faults, time, median_time)) * fault_multiplier(faults, median_faults, track_rating)
 
 
 def add_run_scores(runs_df, votes_df=None):
@@ -247,10 +274,13 @@ def add_run_scores(runs_df, votes_df=None):
                 lambda r: run_level(r["TrackRating"], r["Faults"], r["MedianFaults"], r["Time"], r["MedianTime"]),
                 return_dtype=pl.Float64,
             )
-            .alias("RunLevel")
-        )
-        .with_columns(
-            pl.col("RunLevel").map_elements(level_scaler, return_dtype=pl.Float64).alias("RunScore")
+            .alias("RunLevel"),
+            pl.struct(["TrackRating", "Faults", "MedianFaults", "Time", "MedianTime"])
+            .map_elements(
+                lambda r: run_score(r["TrackRating"], r["Faults"], r["MedianFaults"], r["Time"], r["MedianTime"]),
+                return_dtype=pl.Float64,
+            )
+            .alias("RunScore"),
         )
     )
 
@@ -261,20 +291,24 @@ def add_run_scores(runs_df, votes_df=None):
 REFERENCE_WEIGHT = sum(RUN_DECAY**i for i in range(MIN_RUNS))   # ~6.03: the decayed weight of MIN_RUNS runs
 
 
-assert all(
-    l1 < l2 and e1 < e2 for (_, l1, e1), (_, l2, e2) in zip(RANKS, RANKS[1:])
-), "RANKS: levels and Elo must both rise row by row"
-assert RANKS[-1][1] < 10 and RANKS[-1][2] < ELO_AT_LEVEL_10, "ELO_AT_LEVEL_10 must sit above the last RANKS row"
+assert all(l1 < l2 for (_, l1), (_, l2) in zip(RANKS, RANKS[1:])), "RANKS: levels must rise row by row"
+assert all(l1 < l2 and e1 < e2 for (l1, e1), (l2, e2) in zip(ELO_CURVE, ELO_CURVE[1:])), "ELO_CURVE: levels and Elo must both rise row by row"
 
 
 def elo_from_level(effective_level):
-    # Elo read off RANKS, with the top rank running on through ELO_AT_LEVEL_10; never under 0
-    return max(0, round(interpolate(effective_level, [(level, elo) for _, level, elo in RANKS] + [(10, ELO_AT_LEVEL_10)])))
+    # Elo read off ELO_CURVE; never under 0
+    return max(0, round(interpolate(effective_level, ELO_CURVE)))
 
 
 def rank_from_level(effective_level):
-    # The highest rank whose starting level has been reached; anyone under the first row gets the first rank
-    return [rank for rank, level, _ in RANKS if level <= effective_level or level == RANKS[0][1]][-1]
+    # The highest rank whose starting level has been reached, plus its tier ("Champ II"); anyone under the first row gets the first rank's lowest tier.
+    # Tiers split each rank's level span evenly; the open-ended top rank is a single rank with no tiers
+    i = max([0] + [i for i, (_, level) in enumerate(RANKS) if level <= effective_level])
+    rank, start = RANKS[i]
+    if i == len(RANKS) - 1:
+        return rank
+    tier = min(max(int((effective_level - start) / (RANKS[i + 1][1] - start) * len(RANK_TIERS)), 0), len(RANK_TIERS) - 1)
+    return f"{rank} {RANK_TIERS[tier]}"
 
 
 def player_scores(runs_df, votes_df=None):

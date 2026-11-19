@@ -14,6 +14,22 @@ import points_calculator as pc
 SITE_TEMPLATE = "site/template.html"
 SITE_OUTPUT = "index.html"
 
+# The top rank's chip colour (light, dark) is only written into the page once someone holds that rank
+TOP_RANK_COLOURS = ("#b8002e", "#ff4d6d")
+
+
+def top_rank_css(elo_df):
+    top = pc.RANKS[-1][0]
+    if top not in elo_df["Rank"].to_list():
+        return ""
+    light, dark = TOP_RANK_COLOURS
+    cls = ".r-" + top.replace(" ", "-")
+    return (
+        f'{cls} {{ --rc: {light}; }}\n'
+        f'@media (prefers-color-scheme: dark) {{ :root:not([data-theme="light"]) {cls} {{ --rc: {dark}; }} }}\n'
+        f':root[data-theme="dark"] {cls} {{ --rc: {dark}; }}\n'
+    )
+
 
 def site_data(runs_df, votes_df, elo_df):
     scored = pc.add_run_scores(runs_df, votes_df)
@@ -39,6 +55,7 @@ def build_site(runs_df, votes_df, elo_df, path=SITE_OUTPUT):
     data = json.dumps(site_data(runs_df, votes_df, elo_df), ensure_ascii=False, separators=(",", ":"))
     with open(SITE_TEMPLATE, encoding="utf-8") as f:
         html = f.read().replace("__DATA__", data.replace("</", r"<\/"))   # A "</" inside the JSON would end the script tag
+    html = html.replace("</style>", top_rank_css(elo_df) + "</style>", 1)
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write(html)
 
