@@ -58,7 +58,7 @@ html { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-
 [hidden] { display: none !important; }
 body {
   margin: 0;
-  background: var(--bg);
+  background: radial-gradient(900px 380px at 12% -120px, color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%) no-repeat, var(--bg);
   color: var(--fg);
   font-family: var(--font-body);
   font-size: 15px;
@@ -85,7 +85,11 @@ button, input { font: inherit; color: inherit; }
   margin: 0; font-family: var(--font-display); font-weight: 800; font-size: clamp(34px, 6vw, 52px);
   line-height: .9; letter-spacing: -.01em; text-transform: uppercase; text-wrap: balance;
 }
-.mast h1 span { color: var(--accent); }
+.mast h1 span {
+  color: var(--accent);
+  background: linear-gradient(100deg, var(--accent) 25%, color-mix(in srgb, var(--accent) 45%, var(--r-gc)));
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+}
 .mast .sub { margin: 8px 0 0; color: var(--muted); font-size: 14px; }
 .stats { display: flex; gap: 22px; flex-wrap: wrap; }
 .stat { display: grid; gap: 2px; }
@@ -98,6 +102,7 @@ button, input { font: inherit; color: inherit; }
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
+  view-transition-name: bar;
 }
 .bar .wrap { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding-block: 10px; }
 .seg { display: inline-flex; background: var(--surface-2); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
@@ -106,7 +111,7 @@ button, input { font: inherit; color: inherit; }
   white-space: nowrap; transition: background .15s, color .15s;
 }
 .seg a:hover { color: var(--fg); }
-.seg a[aria-current="page"] { background: var(--fg); color: var(--bg); }
+.seg a[aria-current="page"] { background: var(--fg); color: var(--bg); view-transition-name: seg-active; }
 .search {
   flex: 1 1 180px; min-width: 0; display: flex; align-items: center; gap: 8px;
   background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px;
@@ -135,13 +140,33 @@ main { padding-block: 18px 56px; }
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; display: grid; gap: 6px;
   text-decoration: none; position: relative; overflow: hidden; min-width: 0;
 }
-.pod:hover { border-color: var(--pc); }
+.pod { transition: transform .2s cubic-bezier(.34,1.56,.64,1), border-color .15s, box-shadow .2s; }
+.pod:hover { border-color: var(--pc); transform: translateY(-2px); box-shadow: 0 10px 24px -16px var(--pc); }
 .pod::after { content: ""; position: absolute; inset: 0 0 auto; height: 3px; background: var(--pc); }
 .pod .pos { font-family: var(--font-display); font-weight: 800; font-size: 30px; line-height: 1; color: var(--pc); }
 .pod .nm { font-weight: 600; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pod .el { font-family: var(--font-data); font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .pod .el small { font-size: 12px; color: var(--muted); font-weight: 500; margin-left: 4px; }
 .p1 { --pc: var(--gold); } .p2 { --pc: var(--silver); } .p3 { --pc: var(--bronze); }
+.pod .ct { display: inline-block; }
+/* 1st: a gold comet runs round the border */
+@property --angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+.p1 {
+  border-color: transparent;
+  background:
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    conic-gradient(from var(--angle), var(--gold), color-mix(in srgb, var(--gold) 12%, var(--line)) 28%, color-mix(in srgb, var(--gold) 12%, var(--line)) 72%, var(--gold)) border-box;
+  box-shadow: 0 8px 28px -18px var(--gold);
+  animation: spin 6s linear infinite;
+}
+.p1 .pos { text-shadow: 0 0 18px color-mix(in srgb, var(--gold) 45%, transparent); }
+@keyframes spin { to { --angle: 360deg; } }
+/* Entrance: 3rd, 2nd, then 1st, with a little overshoot */
+.enter .pod { animation: pod-rise .6s cubic-bezier(.34,1.56,.64,1) backwards; }
+.enter .p3 { animation-delay: .05s; }
+.enter .p2 { animation-delay: .17s; }
+.enter .p1 { animation: pod-rise .6s cubic-bezier(.34,1.56,.64,1) .32s backwards, spin 6s linear infinite; }
+@keyframes pod-rise { from { opacity: 0; transform: translateY(22px) scale(.96); } }
 
 /* Tables */
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
@@ -151,9 +176,13 @@ th {
   text-align: left; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
   padding: 10px 12px; border-bottom: 1px solid var(--line); background: var(--surface-2); white-space: nowrap;
 }
-td { padding: 9px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 9px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; transition: background-color .15s; }
 tr:last-child td { border-bottom: 0; }
-tbody tr:hover td { background: var(--surface-2); }
+tbody tr:hover td { background: color-mix(in srgb, var(--rc, var(--accent)) 6%, var(--surface-2)); }
+tbody tr:hover td:first-child { box-shadow: inset 3px 0 0 var(--rc, var(--accent)); }
+tr.rv { opacity: 0; }
+tr.rv.in { opacity: 1; animation: row-in .45s cubic-bezier(.2,.7,.2,1) var(--d, 0ms) backwards; }
+@keyframes row-in { from { opacity: 0; transform: translateY(10px); } }
 .num { text-align: right; font-family: var(--font-data); font-size: 14px; }
 th.num { font-family: var(--font-body); }
 .pos { width: 1%; font-family: var(--font-data); color: var(--muted); }
@@ -167,7 +196,9 @@ th.num { font-family: var(--font-body); }
 
 .elo { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
 .elo .meter { width: 90px; height: 6px; border-radius: 3px; background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; }
-.elo .meter i { display: block; height: 100%; background: var(--rc, var(--accent)); }
+.elo .meter i { display: block; height: 100%; background: var(--rc, var(--accent)); transform-origin: left; }
+tr.in .meter i { animation: grow .8s cubic-bezier(.2,.7,.2,1) calc(var(--d, 0ms) + 80ms) backwards; }
+@keyframes grow { from { transform: scaleX(0); } }
 .elo b { font-weight: 600; min-width: 4ch; text-align: right; }
 
 .rank {
@@ -177,6 +208,168 @@ th.num { font-family: var(--font-body); }
   border: 1px solid color-mix(in srgb, var(--rc) 35%, transparent);
 }
 .rank::before { content: ""; width: 7px; height: 7px; border-radius: 2px; background: var(--rc); transform: rotate(45deg); }
+
+/* The climb to Divine: every rank keeps the tinted pill and adds one more thing.
+   Iron is plain. Bronze to Platinum get polished metal badges; from Silver an idle glint comes round, sooner and brighter each rank.
+   Diamond, Champ and Grand Champ take new badges (gem, shield, crown) and one, two, three twinkles.
+   Grand Champ gains a light running round its edge. Mythic has it all at speed: two lights on the ring, flowing gold lettering,
+   a spinning gem, four twinkles, a constant shine and a pulsing glow. Glints ripple down the table rather than firing together */
+.rank { position: relative; overflow: hidden; isolation: isolate; --shine: rgb(255 255 255 / .55); --tw: var(--rc); --mt-a: #b8400a; --mt-b: #e09000; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .rank { --tw: color-mix(in srgb, var(--rc) 30%, #fff); --mt-a: #ffad33; --mt-b: #fff1c2; } }
+:root[data-theme="dark"] .rank { --tw: color-mix(in srgb, var(--rc) 30%, #fff); --mt-a: #ffad33; --mt-b: #fff1c2; }
+.rank::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, var(--shine) 50%, transparent 65%);
+  transform: translateX(-100%);
+}
+.rank:is(.r-Iron, .r-Bronze):hover::after, tbody tr:hover .rank:is(.r-Iron, .r-Bronze)::after, .fact:hover .rank:is(.r-Iron, .r-Bronze)::after { animation: shine .75s ease-out; }
+
+/* Badges */
+.rank:is(.r-Bronze, .r-Silver, .r-Gold, .r-Platinum)::before {
+  width: 8px; height: 8px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--rc) 30%, #fff) 0 30%, var(--rc) 55%, color-mix(in srgb, var(--rc) 70%, #000));
+}
+.rank:is(.r-Diamond, .r-Champ, .r-Grand-Champ)::before { border-radius: 0; transform: none; }
+.rank.r-Diamond::before {
+  width: 11px; height: 9px; clip-path: polygon(22% 0, 78% 0, 100% 34%, 50% 100%, 0 34%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--rc) 25%, #fff) 0 38%, var(--rc) 38% 66%, color-mix(in srgb, var(--rc) 70%, #000) 66%);
+}
+.rank.r-Champ::before {
+  width: 9px; height: 10px; clip-path: polygon(0 0, 100% 0, 100% 56%, 50% 100%, 0 56%);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--rc) 35%, #fff) 0 35%, var(--rc) 60%, color-mix(in srgb, var(--rc) 70%, #000));
+}
+.rank.r-Grand-Champ::before {
+  width: 12px; height: 9px; clip-path: polygon(0 22%, 26% 55%, 50% 0, 74% 55%, 100% 22%, 88% 100%, 12% 100%);
+  background: linear-gradient(170deg, color-mix(in srgb, var(--rc) 35%, #fff) 0 40%, var(--rc) 60%, color-mix(in srgb, var(--rc) 70%, #000));
+}
+.rank.r-Mythic::before {
+  width: 9px; height: 9px;
+  background: linear-gradient(135deg, #fff2c2 0 20%, #ffb020 50%, #e2550a);
+}
+
+/* Glints: sooner and brighter each rank */
+.rank:is(.r-Gold, .r-Platinum) { border-color: color-mix(in srgb, var(--rc) 50%, transparent); }
+.rank:is(.r-Diamond, .r-Champ) { border-color: color-mix(in srgb, var(--rc) 58%, transparent); }
+.rank.r-Silver { --shine: rgb(255 255 255 / .4); }
+.rank.r-Silver::after { animation: glint-slow 27s ease-in-out infinite; }
+.rank.r-Gold { --shine: rgb(255 248 220 / .55); }
+.rank.r-Gold::after { animation: glint-slow 21s ease-in-out infinite; }
+.rank.r-Platinum { --shine: rgb(255 255 255 / .6); }
+.rank.r-Platinum::after { animation: glint-slow 16.5s ease-in-out infinite; }
+.rank.r-Diamond { --shine: rgb(255 255 255 / .65); }
+.rank.r-Diamond::after { animation: glint-mid 13.5s ease-in-out infinite; }
+.rank.r-Champ { --shine: rgb(255 255 255 / .7); }
+.rank.r-Champ::after { animation: glint-mid 10s ease-in-out infinite; }
+.rank.r-Grand-Champ { --shine: rgb(255 255 255 / .75); }
+.rank.r-Grand-Champ::after { animation: glint-mid 9s ease-in-out infinite; }
+.rank.r-Mythic { --shine: rgb(255 240 200 / .55); }
+.rank.r-Mythic::after { animation: shine 4.2s linear infinite; }
+tbody tr:nth-child(5n+2) .rank:not(.r-Iron, .r-Bronze, .r-Divine)::after { animation-delay: .25s; }
+tbody tr:nth-child(5n+3) .rank:not(.r-Iron, .r-Bronze, .r-Divine)::after { animation-delay: .5s; }
+tbody tr:nth-child(5n+4) .rank:not(.r-Iron, .r-Bronze, .r-Divine)::after { animation-delay: .75s; }
+tbody tr:nth-child(5n) .rank:not(.r-Iron, .r-Bronze, .r-Divine)::after { animation-delay: 1s; }
+
+/* Twinkles: Diamond one, Champ three, Grand Champ four, Mythic six (quicker each step; Mythic's in gold) */
+.rank .tw {
+  position: absolute; width: 5px; height: 5px; pointer-events: none; opacity: 0; background: var(--tw);
+  clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%);
+  animation: twinkle 2.4s ease-in-out infinite;
+}
+.rank .tw1 { top: 2px; right: 6px; }
+.rank .tw2 { bottom: 2px; left: 46%; width: 4px; height: 4px; animation-delay: .8s; }
+.rank .tw3 { top: 2px; left: 30%; width: 4px; height: 4px; animation-delay: 1.6s; }
+.rank .tw4 { bottom: 3px; right: 22%; animation-delay: 1.2s; }
+.rank .tw5 { top: 3px; left: 58%; width: 4px; height: 4px; animation-delay: .4s; }
+.rank .tw6 { bottom: 2px; left: 18%; width: 4px; height: 4px; animation-delay: 2s; }
+.rank:is(.r-Champ, .r-Grand-Champ) .tw { animation-duration: 1.9s; }
+.rank.r-Mythic .tw { background: var(--mt-b); animation-duration: 1.4s; }
+
+
+/* Grand Champ and Mythic: a light runs round the edge. The ring turns behind a plate that covers all but a thin rim */
+.rank:is(.r-Grand-Champ, .r-Mythic) { border: 0; padding: 3px 10px 3px 8px; background: color-mix(in srgb, var(--rc) 40%, transparent); }
+.rank .ring {
+  position: absolute; left: 50%; top: 50%; width: 160%; aspect-ratio: 1; translate: -50% -50%; z-index: -2; pointer-events: none;
+  background: conic-gradient(transparent 0 55%, color-mix(in srgb, var(--rc) 50%, #fff) 75%, var(--rc) 85%, transparent);
+  animation: turn 2.6s linear infinite;
+}
+.rank .plate {
+  position: absolute; inset: 1.5px; border-radius: 999px; z-index: -1; pointer-events: none;
+  background: linear-gradient(color-mix(in srgb, var(--rc) 14%, transparent), color-mix(in srgb, var(--rc) 14%, transparent)), var(--surface);
+}
+.rank.r-Mythic .ring {
+  background: conic-gradient(transparent 0 15%, #ffd76a 30%, #ff7a1a 40%, transparent 50% 65%, #ffd76a 80%, #ff7a1a 90%, transparent);
+  animation-duration: 2.4s;
+}
+.rank.r-Mythic { animation: mythic-glow 2.4s ease-in-out infinite; }
+.rank .mt {
+  font-weight: 700;
+  background: linear-gradient(90deg, var(--mt-a), var(--mt-b), var(--mt-a)) 0 0 / 200% 100% repeat-x;
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  animation: flow 3s linear infinite;
+}
+
+@keyframes glint-slow { 0% { transform: translateX(-100%); } 14%, 100% { transform: translateX(100%); } }
+@keyframes glint-mid { 0% { transform: translateX(-100%); } 22%, 100% { transform: translateX(100%); } }
+@keyframes mythic-glow { 50% { box-shadow: 0 0 12px 1px color-mix(in srgb, var(--rc) 55%, transparent); } }
+
+/* Divine, the top rank (build_site.py adds its colour once someone holds it): a night-sky jewel. Drifting stars inside,
+   a gold and crimson ring running round it, a spinning star, flowing gold text and twinkles */
+:root { --stars-pill: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='24'%3E%3Ccircle cx='6' cy='5' r='0.7' fill='%23ffffff' fill-opacity='0.9'/%3E%3Ccircle cx='19' cy='17' r='0.5' fill='%23ffffff' fill-opacity='0.7'/%3E%3Ccircle cx='31' cy='7' r='0.8' fill='%23ffd76a' fill-opacity='1'/%3E%3Ccircle cx='44' cy='19' r='0.6' fill='%23ffffff' fill-opacity='0.8'/%3E%3Ccircle cx='53' cy='9' r='0.5' fill='%23ffb3c4' fill-opacity='0.9'/%3E%3Cpath d='M38 11.2L38.504 12.496L39.8 13L38.504 13.504L38 14.8L37.496 13.504L36.2 13L37.496 12.496Z' fill='%23ffffff'/%3E%3C/svg%3E"); }
+.rank.r-Divine {
+  position: relative; overflow: hidden; isolation: isolate;
+  padding: 3px 11px 3px 8px; gap: 7px;
+  border: 1.5px solid transparent;
+  background:
+    radial-gradient(120% 140% at 50% 120%, rgb(255 46 99 / .45), transparent 60%) padding-box,
+    linear-gradient(120deg, #1a030c, #3d0719 50%, #1a030c) padding-box,
+    conic-gradient(from var(--angle), #ffd76a, #ff2e63, #fff6d8, #ff2e63, #ffd76a) border-box;
+  animation: spin 2.5s linear infinite, divine-glow 2.2s ease-in-out infinite;
+}
+.rank.r-Divine::before {
+  width: 11px; height: 11px; border-radius: 0; transform: none;
+  clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%);
+  background: radial-gradient(circle, #fff 0 20%, #ffd76a 45%, #ff4d6d);
+}
+.rank.r-Divine::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / .7) 50%, transparent 65%);
+  transform: translateX(-100%);
+  animation: shine 1.3s linear infinite;
+}
+.rank .sky {
+  position: absolute; inset: 0 auto 0 0; width: calc(100% + 120px); z-index: -1; pointer-events: none;
+  background: var(--stars-pill) 0 0 / 60px 24px, var(--stars-pill) 30px 12px / 40px 18px;
+  animation: sky 7s linear infinite;
+}
+.rank .dv {
+  font-weight: 700; letter-spacing: .03em;
+  background: linear-gradient(90deg, #ffd76a, #fff, #ff8fa8, #ffd76a) 0 0 / 200% 100% repeat-x;
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  animation: flow 2.5s linear infinite;
+}
+.rank .sp {
+  position: absolute; width: 6px; height: 6px; pointer-events: none; opacity: 0; background: #fff;
+  clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%);
+  animation: twinkle 1.75s ease-in-out infinite;
+}
+.rank .sp:nth-child(3) { top: 2px; left: 32%; }
+.rank .sp:nth-child(4) { bottom: 2px; left: 56%; width: 5px; height: 5px; animation-delay: .35s; }
+.rank .sp:nth-child(5) { top: 3px; right: 5px; animation-delay: .7s; background: #ffd76a; }
+.rank .sp:nth-child(6) { bottom: 3px; left: 16%; width: 4px; height: 4px; animation-delay: 1.05s; }
+.rank .sp:nth-child(7) { top: 1px; left: 74%; width: 5px; height: 5px; animation-delay: 1.4s; background: #ffd0dc; }
+tbody tr.r-Divine td:first-child { box-shadow: inset 3px 0 0 #ff2e63; }
+tr.r-Divine .meter i { background: linear-gradient(90deg, #ffd76a, #ff2e63); }
+.fact b:has(.r-Divine) { overflow: visible; }   /* Room for the glow */
+
+@keyframes shine { to { transform: translateX(100%); } }
+@keyframes flow { to { background-position: 200% 0; } }
+@keyframes turn { to { transform: rotate(360deg); } }
+@keyframes sky { to { transform: translateX(-120px); } }
+@keyframes twinkle { 0%, 100% { opacity: 0; transform: scale(.3) rotate(0deg); } 50% { opacity: 1; transform: scale(1) rotate(90deg); } }
+@keyframes divine-glow {
+  0%, 100% { box-shadow: 0 0 6px -1px rgb(255 46 99 / .55); }
+  50% { box-shadow: 0 0 16px 2px rgb(255 46 99 / .6), 0 0 26px 4px rgb(255 215 106 / .25); }
+}
 .r-Iron { --rc: var(--r-iron); } .r-Bronze { --rc: var(--r-bronze); } .r-Silver { --rc: var(--r-silver); } .r-Gold { --rc: var(--r-gold); } .r-Platinum { --rc: var(--r-plat); }
 .r-Diamond { --rc: var(--r-diamond); } .r-Champ { --rc: var(--r-champ); } .r-Grand-Champ { --rc: var(--r-gc); } .r-Mythic { --rc: var(--r-mythic); }
 .prov { font-size: 11px; color: var(--muted); border: 1px dashed var(--line); border-radius: 999px; padding: 1px 7px; margin-left: 6px; font-weight: 500; }
@@ -217,7 +410,8 @@ th.num { font-family: var(--font-body); }
 .lv-top b { font-family: var(--font-data); font-weight: 600; font-size: 18px; font-variant-numeric: tabular-nums; }
 .lv-top b span { color: var(--muted); font-weight: 500; font-size: 14px; }
 .lv-bar { display: block; height: 6px; border-radius: 3px; background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; }
-.lv-bar i { display: block; height: 100%; background: var(--accent); }
+.lv-bar i { display: block; height: 100%; background: var(--accent); transform-origin: left; }
+.enter .lv-bar i { animation: grow .9s cubic-bezier(.2,.7,.2,1) .15s backwards; }
 .lv.full { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
 button.lv { text-align: left; cursor: pointer; transition: border-color .15s, background .15s; }
 button.lv:hover:not(:disabled) { border-color: var(--accent); }
@@ -248,7 +442,17 @@ footer p { margin: 0; max-width: 65ch; }
   .name { max-width: 150px; }
   td, th { padding-left: 9px; padding-right: 9px; }
 }
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+::view-transition-old(root) { animation: vt-out .16s ease-in both; }
+::view-transition-new(root) { animation: vt-in .26s cubic-bezier(.2,.7,.2,1) both; }
+::view-transition-group(seg-active) { animation-duration: .38s; animation-timing-function: cubic-bezier(.34,1.3,.64,1); }
+::view-transition-old(seg-active), ::view-transition-new(seg-active) { height: 100%; }
+@keyframes vt-out { to { opacity: 0; } }
+@keyframes vt-in { from { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}
 </style>
 </head>
 <body>
@@ -343,11 +547,22 @@ footer p { margin: 0; max-width: 65ch; }
   $("#updated").textContent = "updated " + new Date(D.generated + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
   $("#stats").innerHTML = [
     [ranked, "ranked players"], [allRuns.length, "runs"], [trackList.length, "tracks"]
-  ].map(([n, l]) => `<div class="stat"><b>${fmtInt(n)}</b><small>${l}</small></div>`).join("");
+  ].map(([n, l]) => `<div class="stat"><b data-count="${n}">${fmtInt(n)}</b><small>${l}</small></div>`).join("");
 
   // Pieces
   const rankClass = r => `r-${esc(r.replace(/ (I|II|III)$/, "").replace(/ /g, "-"))}`;   // Tier (I, II, III) shares its rank's colour
-  const rankChip = r => `<span class="rank ${rankClass(r)}">${esc(r)}</span>`;
+  // Higher ranks carry extra layers. Divine: a starfield, gradient text and twinkles. Diamond up: twinkles, more each step.
+  // Grand Champ and Mythic: a ring of light behind a plate. Mythic: gradient lettering
+  const TWINKLES = { Diamond: 1, Champ: 3, "Grand Champ": 4, Mythic: 6 };
+  const RINGED = new Set(["Grand Champ", "Mythic"]);
+  const rankChip = r => {
+    if (r === "Divine") return `<span class="rank r-Divine"><i class="sky"></i><span class="dv">Divine</span>${'<i class="sp"></i>'.repeat(5)}</span>`;
+    const base = r.replace(/ (I|II|III)$/, "");
+    const ring = RINGED.has(base) ? '<i class="ring"></i><i class="plate"></i>' : "";
+    const label = base === "Mythic" ? `<span class="mt">${esc(r)}</span>` : esc(r);
+    const tw = Array.from({ length: TWINKLES[base] || 0 }, (_, i) => `<i class="tw tw${i + 1}"></i>`).join("");
+    return `<span class="rank ${rankClass(r)}">${ring}${label}${tw}</span>`;
+  };
   const pLink = p => p ? `<a class="lnk" href="#${p.slug}">${esc(p.Player)}</a>` : "";
   const tLink = t => `<a class="lnk trk" href="#${t.slug}">${esc(t.Track)}<span class="lvl">L${t.Level}</span></a>`;
   const faults = f => `<span class="flt${f === 0 ? " zero" : ""}"${f === 0 ? ' title="Zero faults"' : ""}>${f}</span>`;
@@ -364,7 +579,7 @@ footer p { margin: 0; max-width: 65ch; }
     const list = players.filter(p => (state.unranked || p.Ranked) && match(p.Player));
     const top3 = !state.q ? players.filter(p => p.Ranked).slice(0, 3) : [];
     const body = list.map(p => `
-      <tr class="${p.Ranked ? "" : "dim"}">
+      <tr class="${rankClass(p.Rank)}${p.Ranked ? "" : " dim"}">
         <td class="pos${p.Ranked ? posClass(p.Place) : ""}">${p.Ranked ? p.Place : "&ndash;"}</td>
         <td class="name">${pLink(p)}${p.Ranked ? "" : '<span class="prov">unranked</span>'}</td>
         <td>${rankChip(p.Rank)}</td>
@@ -381,7 +596,7 @@ footer p { margin: 0; max-width: 65ch; }
         <a class="pod p${i + 1}" href="#${p.slug}">
           <span class="pos">${ord(i + 1)}</span>
           <span class="nm">${esc(p.Player)}</span>
-          <span class="el">${fmtInt(p.Elo)}<small>Elo</small></span>
+          <span class="el"><span class="ct" data-count="${p.Elo}" style="min-width:${fmtInt(p.Elo).length}ch">${fmtInt(p.Elo)}</span><small>Elo</small></span>
         </a>`).join("")}</div>` : ""}
       <div class="card"><div class="scroll"><table>
         <thead><tr><th>#</th><th>Player</th><th>Rank</th><th class="num">Elo</th><th class="num hide-sm">Level</th><th class="num hide-sm">Runs</th></tr></thead>
@@ -489,7 +704,7 @@ footer p { margin: 0; max-width: 65ch; }
       <section class="hero">
         <div><div class="eyebrow">${p.Ranked ? `${ord(p.Place)} place` : `Unranked &middot; needs 7 runs`}</div><h2>${esc(p.Player)}</h2></div>
         <div class="facts">
-          <div class="fact"><small>Elo</small><b>${fmtInt(p.Elo)}</b></div>
+          <div class="fact"><small>Elo</small><b data-count="${p.Elo}">${fmtInt(p.Elo)}</b></div>
           <div class="fact"><small>Rank</small><b class="txt">${rankChip(p.Rank)}</b></div>
           <div class="fact"><small>Level</small><b>${p.Level.toFixed(2)}</b></div>
           <div class="fact"><small>Runs</small><b>${p.Runs}</b></div>
@@ -520,6 +735,38 @@ footer p { margin: 0; max-width: 65ch; }
       </table></div></div>`;
   }
 
+  // Motion: count-ups and row reveals run only when a view is first opened, never on a search keystroke or toggle
+  const calm = matchMedia("(prefers-reduced-motion: reduce)");
+  function countUp(root) {
+    if (calm.matches) return;
+    root.querySelectorAll("[data-count]").forEach(el => {
+      const to = +el.dataset.count, t0 = performance.now(), dur = 900;
+      el.textContent = "0";
+      const tick = now => {
+        const k = Math.min(1, (now - t0) / dur);
+        el.textContent = fmtInt(Math.round(to * (1 - Math.pow(1 - k, 3))));
+        if (k < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+  }
+  // Rows fade up as they scroll into view. Not animation-timeline: view(), because each table's .scroll wrapper is the scroller it would track
+  const io = "IntersectionObserver" in window ? new IntersectionObserver(entries => {
+    let i = 0;
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      e.target.style.setProperty("--d", Math.min(i++ * 24, 360) + "ms");   // Rows that arrive together cascade
+      e.target.classList.add("in");
+      io.unobserve(e.target);
+    });
+  }, { rootMargin: "0px 0px -20px 0px" }) : null;
+  function revealRows(root) {
+    if (!io) return;
+    io.disconnect();
+    if (calm.matches) return;
+    root.querySelectorAll("tbody tr").forEach(r => { if (!r.querySelector(".empty")) { r.classList.add("rv"); io.observe(r); } });
+  }
+
   // Router
   function current() {
     const h = location.hash.slice(1);
@@ -535,7 +782,10 @@ footer p { margin: 0; max-width: 65ch; }
     if (["players", "runs", "tracks"].includes(c.view)) lastList = c.view;
     document.querySelectorAll(".seg a").forEach(a => a.setAttribute("aria-current", a.dataset.view === (["track", "player"].includes(c.view) ? lastList : c.view) ? "page" : "false"));
     const html = c.view === "runs" ? viewRuns() : c.view === "tracks" ? viewTracks() : c.view === "track" ? viewTrack(c.t) : c.view === "player" ? viewPlayer(c.p) : viewPlayers();
-    $("#app").innerHTML = html;
+    const app = $("#app"), entering = key !== prevKey;
+    app.innerHTML = html;
+    app.classList.toggle("enter", entering && !calm.matches);
+    if (entering) { revealRows(app); countUp(app); }
     const q = $("#q");
     q.placeholder = c.view === "track" ? "Search players on this track" : c.view === "player" ? "Search this player's tracks" : c.view === "tracks" ? "Search tracks" : "Search players or tracks";
     if (key !== prevKey && prevKey !== null) window.scrollTo({ top: 0 });
@@ -543,7 +793,10 @@ footer p { margin: 0; max-width: 65ch; }
   }
 
   $("#q").addEventListener("input", e => { state.q = e.target.value.trim().toLowerCase(); state.runsShown = 100; render(); });
-  window.addEventListener("hashchange", () => { state.q = ""; $("#q").value = ""; state.runsShown = 100; state.missing = null; render(); });
+  window.addEventListener("hashchange", () => {
+    const go = () => { state.q = ""; $("#q").value = ""; state.runsShown = 100; state.missing = null; render(); };
+    document.startViewTransition && !calm.matches ? document.startViewTransition(go) : go();
+  });
   $("#app").addEventListener("click", e => {
     const b = e.target.closest("button");
     if (!b) return;
@@ -560,6 +813,7 @@ footer p { margin: 0; max-width: 65ch; }
   });
 
   render();
+  countUp($("#stats"));
 })();
 </script>
 </body>
