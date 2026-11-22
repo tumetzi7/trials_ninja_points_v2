@@ -10,6 +10,7 @@ from democratic_ratings import track_votes
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------------
 RUN_DECAY = 0.95                   # Osu-style weighting: best run counts 100%, next 95%, then 90.25%... so padding with weak runs adds next to nothing
 MIN_RUNS = 7                       # Players need this many runs to be ranked. Also how many median level X passes make a level X rider
+MAX_COUNTED_RUNS = 0               # Only a player's best this-many runs count toward their score; 0 counts them all
 
 # Ranks: (rank, effective level it starts at). One rank per whole level; the last row is open-ended and untiered
 RANKS = [
@@ -110,9 +111,64 @@ RUNS_SCHEMA = {
 EXTRA_CP_PATTERN = r"(?i)\+|50\s*cps"
 
 
-def load_runs(path="data/runs_all.csv"):
+EXPORT_PATH = "data/ninja_runs.csv"           # Game export: every ninja level, each player's best run per track, keyed by user and track id
+CURATED_PATH = "data/runs_curated.csv"        # Hand-collected level 7-9 passes; the tracks it lists keep the level it gives them
+TRACK_LEVELS_PATH = "data/track_levels.csv"   # Hand-set ninja levels (Track, Level) for export tracks the game files under the wrong level
+CLAN_TAG_PATTERN = r"^\[[^\]]*\]\s*"          # "[QK] RandallQK" in the curated file is "RandallQK" in the export
+CURATED_RENAMES = {                           # Curated names that are a different account name in the export
+    "del230330031001": "del2303300310017591714",   # Deleted accounts are shown truncated in the curated file
+    "MayaQK": "TrialsEloReaper",                   # Same rider, now on this account
+}
+
+
+def load_track_levels(path=TRACK_LEVELS_PATH):
+    if not os.path.exists(path):
+        return pl.DataFrame(schema={"Track": pl.Utf8, "FixedLevel": pl.Int64})
+    return pl.read_csv(path, schema={"Track": pl.Utf8, "Level": pl.Int64}).rename({"Level": "FixedLevel"})
+
+
+def load_export(path=EXPORT_PATH):
+    # The export's own columns, renamed to RUNS_SCHEMA. A player with no username is shown by the start of their user id;
+    # two different tracks with the same name and level get their track id appended so they don't merge
+    export = pl.read_csv(path, encoding="utf8-lossy")
+    collide = pl.col("track id").n_unique().over("track name", "ninja level") > 1
+    return (
+        export.select(
+            pl.coalesce("username", pl.lit("Player ") + pl.col("user id").str.slice(0, 8)).alias("Player"),
+            pl.when(collide).then(pl.format("{} #{}", "track name", "track id")).otherwise("track name").alias("Track"),
+            pl.col("ninja level").alias("Level"),
+            pl.col("faults").alias("Faults"),
+            pl.col("time").cast(pl.Float64).alias("Time"),
+        )
+        .join(load_track_levels(), on="Track", how="left")
+        .with_columns(pl.coalesce("FixedLevel", "Level").alias("Level"))
+        .drop("FixedLevel")
+    )
+
+
+def load_runs(export_path=EXPORT_PATH, curated_path=CURATED_PATH):
+    # Runs from both files, one per player per track: their best (fewest faults, then fastest), since the export holds newer PBs and the
+    # curated file passes the export lacks. A track the curated file lists takes its level there (the export files some a level off)
+    export = load_export(export_path)
+    curated = pl.read_csv(curated_path, schema=RUNS_SCHEMA).with_columns(
+        pl.col("Player").str.replace(CLAN_TAG_PATTERN, "").replace(CURATED_RENAMES)
+    )
+    curated_levels = curated.select("Track", pl.col("Level").alias("CuratedLevel")).unique()
+    runs = (
+        pl.concat([
+            export.join(curated_levels, on="Track", how="left")
+            .with_columns(pl.coalesce("CuratedLevel", "Level").alias("Level"))
+            .drop("CuratedLevel"),
+            curated,
+        ])
+        .sort("Faults", "Time")
+        .unique(["Player", "Track", "Level"], keep="first", maintain_order=True)
+    )
+    return check_runs(runs, f"{export_path} or {curated_path}")
+
+
+def check_runs(runs, source):
     # Every row is a pass, so a blank or a value past a game cap can only be a data-entry error: stop rather than score it
-    runs = pl.read_csv(path, schema=RUNS_SCHEMA)
     bad = runs.filter(
         pl.any_horizontal(pl.all().is_null())
         | ~pl.col("Faults").is_between(0, MAX_FAULTS)
@@ -120,7 +176,7 @@ def load_runs(path="data/runs_all.csv"):
     )
     if bad.height:
         raise ValueError(
-            f"{bad.height} rows in {path} break the rules (no blanks, 0 to {MAX_FAULTS} faults, "
+            f"{bad.height} rows in {source} break the rules (no blanks, 0 to {MAX_FAULTS} faults, "
             f"time above 0 and under 30:00):\n{bad}"
         )
     return runs.filter(~pl.col("Track").str.contains(EXTRA_CP_PATTERN))
@@ -340,7 +396,10 @@ def player_scores(runs_df, votes_df=None):
         .agg(
             pl.len().alias("Runs"),
             pl.col("Level").max().alias("HighestLevel"),
-            (pl.col("RunScore") * RUN_DECAY ** pl.col("RunRank")).sum().alias("PlayerScore"),
+            (pl.col("RunScore") * RUN_DECAY ** pl.col("RunRank"))
+            .filter((pl.col("RunRank") < MAX_COUNTED_RUNS) if MAX_COUNTED_RUNS else pl.lit(True))
+            .sum()
+            .alias("PlayerScore"),
         )
         .with_columns(
             (pl.col("PlayerScore") / REFERENCE_WEIGHT)

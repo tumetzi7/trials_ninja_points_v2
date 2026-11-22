@@ -22,6 +22,7 @@
   --gold: #a57800;
   --silver: #6f7a8c;
   --bronze: #9a5a2c;
+  --bad: #c62828;
 
   --r-iron: #5f646d;
   --r-bronze: #a5622f;
@@ -41,14 +42,14 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #0d1119; --surface: #151b26; --surface-2: #1b2230; --fg: #e9ecf2; --muted: #8e97a9; --line: #263042;
-    --accent: #ffad33; --accent-soft: #3a2a12; --gold: #f2c14e; --silver: #c3cad6; --bronze: #d99361;
+    --accent: #ffad33; --accent-soft: #3a2a12; --bad: #ff6b6b; --gold: #f2c14e; --silver: #c3cad6; --bronze: #d99361;
     --r-iron: #9aa0aa; --r-bronze: #d18a55; --r-silver: #aeb8c8; --r-gold: #e8bb3a; --r-plat: #4fd1c1; --r-diamond: #6aa8ff; --r-champ: #b48bff; --r-gc: #ff6fb8; --r-mythic: #ffad33;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #0d1119; --surface: #151b26; --surface-2: #1b2230; --fg: #e9ecf2; --muted: #8e97a9; --line: #263042;
-  --accent: #ffad33; --accent-soft: #3a2a12; --gold: #f2c14e; --silver: #c3cad6; --bronze: #d99361;
+  --accent: #ffad33; --accent-soft: #3a2a12; --bad: #ff6b6b; --gold: #f2c14e; --silver: #c3cad6; --bronze: #d99361;
   --r-iron: #9aa0aa; --r-bronze: #d18a55; --r-silver: #aeb8c8; --r-gold: #e8bb3a; --r-plat: #4fd1c1; --r-diamond: #6aa8ff; --r-champ: #b48bff; --r-gc: #ff6fb8; --r-mythic: #ffad33;
   color-scheme: dark;
 }
@@ -73,7 +74,7 @@ button, input { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 
 .wrap {
-  max-width: 960px;
+  max-width: 1240px;
   margin: 0 auto;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
@@ -120,7 +121,100 @@ button, input { font: inherit; color: inherit; }
 .search input { border: 0; background: transparent; outline: none; width: 100%; min-width: 0; font-size: 14px; }
 .search:focus-within { border-color: var(--accent); }
 
-main { padding-block: 18px 56px; }
+main { padding-block: 18px 56px; min-width: 0; }
+
+/* Settings: a sticky column on the left; a drawer on narrow screens */
+.layout { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 0 28px; align-items: start; }
+.settings {
+  position: sticky; top: 74px; margin-block: 18px 56px; max-height: calc(100vh - 92px); overflow: auto; overscroll-behavior: contain;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); display: flex; flex-direction: column;
+}
+.set-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 14px 16px 0; }
+.set-head h2 { margin: 0; font-family: var(--font-display); font-size: 22px; font-weight: 700; text-transform: uppercase; letter-spacing: .01em; }
+.set-note { margin: 4px 16px 12px; color: var(--muted); font-size: 13px; }
+.set-note b { color: var(--accent); font-weight: 600; }
+.set-group { border-top: 1px solid var(--line); }
+.set-group h3 {
+  margin: 0; padding: 12px 16px 6px; display: flex; align-items: center; gap: 8px;
+  font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+}
+.set-group h3 .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.set-hint { margin: -2px 16px 8px; font-size: 12px; color: var(--muted); }
+.set-body { padding-bottom: 12px; display: grid; gap: 8px; }
+.set-row { display: grid; grid-template-columns: minmax(0, 1fr) 80px 84px; align-items: center; gap: 8px; padding: 3px 16px; font-size: 13px; }
+.set-sub { grid-column: 1 / -1; color: var(--muted); font-size: 12px; line-height: 1.35; }
+.set-row label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.set-row.changed label { color: var(--accent); font-weight: 600; }
+.set-row input {
+  width: 100%; text-align: right; font-family: var(--font-data); font-size: 13px; padding: 4px 6px;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--surface-2);
+}
+.set-row input:focus { outline: none; border-color: var(--accent); }
+.set-row input.bad { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 10%, var(--surface-2)); }
+.set-unit { color: var(--muted); font-size: 12px; font-family: var(--font-data); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.set-foot { position: sticky; bottom: 0; margin-top: auto; display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); background: var(--surface); }
+.set-foot .btn { flex: 1; padding: 7px 10px; font-size: 13px; }
+.set-toggle, .set-close {
+  display: none; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); border-radius: 999px;
+  padding: 6px 12px; font-weight: 600; font-size: 14px; cursor: pointer;
+}
+.set-toggle:hover, .set-close:hover { border-color: var(--accent); color: var(--accent); }
+.set-toggle .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.scrim { position: fixed; inset: 0; z-index: 25; background: rgb(0 0 0 / .4); }
+.export {
+  width: min(620px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 0; color: var(--fg);
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 24px 60px -20px rgb(0 0 0 / .5);
+}
+.export[open] { display: flex; flex-direction: column; }
+.export::backdrop { background: rgb(0 0 0 / .45); }
+.export-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 16px 0; }
+.export-head h2 { margin: 0; font-family: var(--font-display); font-size: 22px; font-weight: 700; text-transform: uppercase; }
+.export-head .btn, .export-foot .btn { padding: 7px 14px; font-size: 13px; }
+.export .set-note { margin: 6px 16px 10px; }
+.export code { font-family: var(--font-data); font-size: 12px; }
+.export textarea {
+  margin: 0 16px; min-height: 300px; flex: 1; resize: vertical; padding: 12px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface-2); color: var(--fg); font: 12.5px/1.5 var(--font-data); white-space: pre; overflow: auto;
+}
+.export textarea:focus { outline: none; border-color: var(--accent); }
+.export-foot { display: flex; gap: 8px; justify-content: flex-end; padding: 12px 16px 16px; }
+.custom-tag { color: var(--accent); font-weight: 600; }
+
+/* Points calculator */
+.calc { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 14px; align-items: start; }
+.calc-form { padding: 16px; display: grid; gap: 14px; }
+.calc-field { display: grid; gap: 6px; }
+.calc-field > span:first-child { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.calc-in { display: flex; gap: 6px; align-items: center; }
+.calc-form input {
+  width: 100%; min-width: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2);
+  font-family: var(--font-data); font-size: 14px;
+}
+.calc-form input:focus { outline: none; border-color: var(--accent); }
+.calc-in .chipbtn { flex: none; padding: 7px 12px; }
+.calc-out { padding: 16px; }
+.calc-empty { margin: 0; color: var(--muted); }
+.calc-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 10px 20px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.calc-top small { display: block; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.calc-pts { font-family: var(--font-data); font-size: 40px; font-weight: 600; line-height: 1.1; color: var(--accent); font-variant-numeric: tabular-nums; }
+.calc-place { display: grid; gap: 2px; text-align: right; color: var(--muted); font-size: 14px; }
+.calc-place b { color: var(--fg); font-family: var(--font-data); }
+.calc-lines { display: grid; }
+.calc-line { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 0 12px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.calc-line:last-child { border-bottom: 0; }
+.calc-line span { color: var(--muted); font-size: 13px; }
+.calc-line b { font-family: var(--font-data); font-weight: 600; font-variant-numeric: tabular-nums; }
+.calc-line small { grid-column: 2; color: var(--muted); font-size: 12px; }
+@media (max-width: 760px) { .calc { grid-template-columns: minmax(0, 1fr); } .calc-place { text-align: left; } }
+@media (max-width: 1080px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .settings {
+    position: fixed; z-index: 30; inset: 0 auto 0 0; width: min(380px, 92vw); max-height: none; margin: 0; border-width: 0 1px 0 0; border-radius: 0;
+    transform: translateX(-105%); visibility: hidden; transition: transform .25s cubic-bezier(.2,.7,.2,1), visibility .25s;
+  }
+  .settings.open { transform: none; visibility: visible; box-shadow: 0 0 40px rgb(0 0 0 / .3); }
+  .set-toggle, .set-close { display: inline-flex; }
+}
 
 /* Section head */
 .head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; margin-bottom: 12px; }
@@ -460,17 +554,22 @@ footer p { margin: 0; max-width: 65ch; }
 <header class="wrap mast">
   <div>
     <h1>Ninja <span>Points</span></h1>
-    <p class="sub">Trials Fusion ninja leaderboard &middot; levels 7 to 9 &middot; <span id="updated"></span></p>
+    <p class="sub">Trials Fusion ninja leaderboard &middot; levels 1 to 9 &middot; <span id="updated"></span><span id="custom-tag" hidden> &middot; <span class="custom-tag">custom scoring</span></span></p>
   </div>
   <div class="stats" id="stats"></div>
 </header>
 
 <div class="bar">
   <div class="wrap">
+    <button class="set-toggle" id="set-open" aria-controls="settings" aria-expanded="false">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h10M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+      Scoring<span class="dot" id="set-dot" hidden></span>
+    </button>
     <nav class="seg" aria-label="View">
       <a href="#players" data-view="players">Players</a>
       <a href="#runs" data-view="runs">Top runs</a>
       <a href="#tracks" data-view="tracks">Tracks</a>
+      <a href="#calc" data-view="calc">Calculator</a>
     </nav>
     <label class="search" for="q">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -479,16 +578,157 @@ footer p { margin: 0; max-width: 65ch; }
   </div>
 </div>
 
-<main class="wrap" id="app"></main>
+<div class="wrap layout">
+  <aside class="settings" id="settings" aria-label="Scoring settings">
+    <div class="set-head"><h2>Scoring</h2><button class="set-close" id="set-close" aria-label="Close scoring settings">Close</button></div>
+    <p class="set-note" id="set-status"></p>
+    <div id="set-groups"></div>
+    <div class="set-foot"><button class="btn" id="set-reset">Reset</button><button class="btn" id="set-export">Export</button></div>
+  </aside>
+  <main id="app"></main>
+</div>
+<div class="scrim" id="scrim" hidden></div>
+<dialog class="export" id="export" aria-labelledby="export-title">
+  <div class="export-head"><h2 id="export-title">Export settings</h2><button class="btn" id="export-close">Close</button></div>
+  <p class="set-note">Every setting as plain text, ready to paste. Copy as Python gives the same numbers as <code>points_calculator.py</code> constants.</p>
+  <textarea id="export-text" readonly spellcheck="false" aria-label="Settings as text"></textarea>
+  <div class="export-foot"><button class="btn" id="export-copy">Copy text</button><button class="btn" id="export-py">Copy as Python</button></div>
+</dialog>
 
 <footer class="wrap">
-  <p>Runs are scored by track rating and how cleanly they were ridden, then combined best first into an Elo. Track leaderboards are ordered by faults, then time. Players need 7 runs to get a place.</p>
+  <p>Runs are scored by track rating and how cleanly they were ridden, then combined best first into an Elo. Track leaderboards are ordered by faults, then time. Players need <span id="min-runs">7</span> runs to get a place. The scoring panel changes the scoring on this device only.</p>
 </footer>
 
-<script id="data" type="application/json">__DATA__</script>
+<script id="data" type="application/octet-stream">__DATA__</script>
+<script id="scoring">
+// Scoring: a port of points_calculator.py, so the settings panel can rescore every run live. build_site.py bakes the Python
+// constants in as "settings". Nothing here touches the page, so it can be checked against the Python output on its own
+var NinjaScore = (() => {
+  // Straight lines through (x, y) rows sorted by rising x; the first and last lines carry on past the ends
+  const interp = (x, pts) => {
+    let i = 1;
+    while (i < pts.length - 1 && x > pts[i][0]) i++;
+    const [x0, y0] = pts[i - 1], [x1, y1] = pts[i];
+    return y0 + (y1 - y0) * (x - x0) / (x1 - x0);
+  };
+  const roundEven = x => { const r = Math.round(x); return Math.abs(x % 1) === 0.5 && r % 2 ? r - 1 : r; };   // Python's round()
+  const median = a => { const s = Float64Array.from(a).sort(), n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; };
+
+  // What doesn't depend on settings: each track's run count, raw median faults and median time, and each level's median faults
+  function prepare(D) {
+    const faults = D.tracks.map(() => []), times = D.tracks.map(() => []), byLevel = {};
+    for (const [, ti, f, t] of D.runs) {
+      faults[ti].push(f);
+      times[ti].push(t);
+      (byLevel[D.tracks[ti].Level] ||= []).push(f);
+    }
+    const levelMedian = {};
+    for (const l in byLevel) levelMedian[l] = median(byLevel[l]);
+    return D.tracks.map((t, i) => ({
+      runs: faults[i].length,
+      rawMedianFaults: faults[i].length ? median(faults[i]) : 0,
+      medianTime: times[i].length ? median(times[i]) : 0,
+      levelMedianFaults: levelMedian[t.Level] ?? 0,
+    }));
+  }
+
+  // (level, ln worth) rows from the level steps, and the points scale that puts a median level 8 pass at points_at_level_8
+  function curve(S) {
+    const llw = [[S.level_steps[0][0], 0]];
+    for (const [l, step] of S.level_steps) llw.push([l + 1, llw[llw.length - 1][1] + Math.log(step)]);
+    return { llw, scale: S.points_at_level_8 / Math.exp(interp(8, llw)) };
+  }
+  // Points a median pass on a track of this rating is worth
+  const worthFn = S => { const { llw, scale } = curve(S); return l => scale * Math.exp(interp(l, llw)); };
+
+  // One run's score on track ti, with every step kept so the calculator can show its working
+  function runScorer(D, S, prep) {
+    const worth = worthFn(S);
+    const fc = S.fault_cap, zb = S.zero_fault_bonus;
+    const cap = r => r <= fc[0][0] ? fc[0][1] : r >= fc[fc.length - 1][0] ? fc[fc.length - 1][1] : interp(r, fc);
+    const prior = S.fault_median_prior_runs;
+    const medFaults = prep.map(p => (p.runs * p.rawMedianFaults + prior * p.levelMedianFaults) / (p.runs + prior));
+    return (ti, f, t) => {
+      const rating = D.tracks[ti].Rating, med = medFaults[ti], mt = prep[ti].medianTime, c = cap(rating);
+      const fullBonus = interp(Math.min(Math.max(rating, zb[0][0]), zb[zb.length - 1][0]), zb);
+      const bonus = Math.max(0, 1 - f / (S.zero_fault_taper * med)) * fullBonus;
+      const timeShift = S.time_shift_max * Math.max(-1, (mt - t) / mt);
+      const level = rating + bonus + timeShift;
+      const mult = f === 0 ? 1 + c : 1 + c * Math.tanh(S.fault_steepness * Math.log(med / f));
+      return { rating, medianFaults: med, medianTime: mt, cap: c, fullBonus, bonus, timeShift, level, worth: worth(level), mult, points: worth(level) * mult };
+    };
+  }
+
+  // Scores every run (runScore and runLevel, by D.runs index) and every player (by D.players index)
+  function score(D, S, prep) {
+    const { llw, scale } = curve(S);
+    const inv = llw.map(([l, w]) => [w, l]);
+    const levelFromWorth = w => interp(Math.log(w / scale), inv);
+
+    const scoreRun = runScorer(D, S, prep);
+    const n = D.runs.length, runScore = new Float64Array(n), runLevel = new Float64Array(n);
+    D.runs.forEach(([, ti, f, t], i) => {
+      const r = scoreRun(ti, f, t);
+      runLevel[i] = r.level;
+      runScore[i] = r.points;
+    });
+
+    const eloFromLevel = l => Math.max(0, roundEven(interp(l, S.elo_curve)));
+    const rankFromLevel = l => {
+      const R = S.ranks, T = S.rank_tiers;
+      let i = 0;
+      R.forEach(([, start], j) => { if (start <= l) i = j; });
+      if (i === R.length - 1) return R[i][0];
+      const [rank, start] = R[i];
+      const tier = Math.min(Math.max(Math.trunc((l - start) / (R[i + 1][1] - start) * T.length), 0), T.length - 1);
+      return `${rank} ${T[tier]}`;
+    };
+
+    let ref = 0;
+    for (let k = 0; k < S.min_runs; k++) ref += S.run_decay ** k;
+    const limit = S.max_counted_runs || Infinity;
+    const scores = D.players.map(() => []), highest = D.players.map(() => -Infinity);
+    D.runs.forEach(([pi, ti], i) => { scores[pi].push(runScore[i]); highest[pi] = Math.max(highest[pi], D.tracks[ti].Level); });
+    const players = scores.map((sc, pi) => {
+      sc.sort((a, b) => b - a);
+      let total = 0;
+      for (let k = 0; k < sc.length && k < limit; k++) total += sc[k] * S.run_decay ** k;
+      const level = levelFromWorth(total / ref), top = highest[pi] + 1;   // Rank gate: nothing above the rank of the hardest level passed
+      return {
+        PlayerScore: total, Level: level, Runs: sc.length, Ranked: sc.length >= S.min_runs,
+        Elo: level < top ? eloFromLevel(level) : eloFromLevel(top) - 1,
+        Rank: rankFromLevel(Math.min(level, top - 1e-9)),
+      };
+    });
+    return { runScore, runLevel, players };
+  }
+
+  return { interp, roundEven, prepare, score, worthFn, runScorer };
+})();
+</script>
 <script>
-(() => {
-  const D = JSON.parse(document.getElementById("data").textContent);
+(async () => {
+  // The page data is gzipped JSON in base64 (see build_site.py): unpack it before anything renders
+  const packed = await fetch("data:application/octet-stream;base64," + document.getElementById("data").textContent.trim());
+  const D = JSON.parse(await new Response(packed.body.pipeThrough(new DecompressionStream("gzip"))).text());
+  const RUNS = D.runs.map(([pi, ti, Faults, Time]) => {   // Rows index players and tracks (see build_site.py); points come from rescore()
+    const t = D.tracks[ti];
+    return { Player: D.players[pi], Track: t.Track, Level: t.Level, Faults, Time, score: 0, Points: 0, RunLevel: 0 };
+  });
+
+  // Scoring settings: the Python defaults, or this viewer's saved changes if they still fit the same rows
+  const DEF = D.settings;
+  const EDITABLE = ["level_steps", "zero_fault_bonus", "zero_fault_taper", "fault_cap", "fault_steepness", "run_decay", "max_counted_runs", "min_runs"];   // What the panel can change
+  const SAVE_KEY = "np-settings";
+  const clone = o => JSON.parse(JSON.stringify(o));
+  const fits = (v, d) => Array.isArray(d)
+    ? Array.isArray(v) && v.length === d.length && v.every((row, i) => Array.isArray(row) && row[0] === d[i][0] && Number.isFinite(row[1]))
+    : Number.isFinite(v);
+  let S = clone(DEF);
+  try {
+    const saved = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
+    if (saved) EDITABLE.forEach(k => { if (fits(saved[k], DEF[k])) S[k] = saved[k]; });
+  } catch (e) {}
   const $ = (s, el = document) => el.querySelector(s);
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const fmtInt = n => n.toLocaleString("en-US");
@@ -512,8 +752,8 @@ footer p { margin: 0; max-width: 65ch; }
   // Tracks
   const tkey = (t, l) => t + "\u0000" + l;
   const tracks = new Map();
-  D.tracks.forEach(t => tracks.set(tkey(t.Track, t.Level), { ...t, slug: slugify("t", `${t.Track} ${t.Level}`), runs: [] }));
-  D.runs.forEach(r => {
+  D.tracks.forEach((t, ti) => tracks.set(tkey(t.Track, t.Level), { ...t, ti, slug: slugify("t", `${t.Track} ${t.Level}`), runs: [] }));
+  RUNS.forEach(r => {
     const k = tkey(r.Track, r.Level);
     if (!tracks.has(k)) tracks.set(k, { Track: r.Track, Level: r.Level, VoteCount: 0, Rating: r.Level, slug: slugify("t", `${r.Track} ${r.Level}`), runs: [] });
     const t = tracks.get(k);
@@ -532,22 +772,35 @@ footer p { margin: 0; max-width: 65ch; }
   trackList.forEach(t => { levelTotals[t.Level] = (levelTotals[t.Level] || 0) + 1; });
   const levelsDesc = Object.keys(levelTotals).map(Number).sort((a, b) => b - a);
 
-  // Players
-  const players = D.players.map(p => ({ ...p, slug: slugify("p", p.Player), runs: [] }));
+  // Players: Elo, rank, level and every run's points are filled in by rescore()
+  const byIndex = D.players.map(name => ({ Player: name, slug: slugify("p", name), runs: [] }));   // D.players order, as the scorer returns them
+  const players = byIndex.slice();   // Re-sorted by Elo on every rescore
   const playerByName = new Map(players.map(p => [p.Player, p]));
   const playerBySlug = new Map(players.map(p => [p.slug, p]));
-  D.runs.forEach(r => { const p = playerByName.get(r.Player); if (p) { p.runs.push(r); r.p = p; } });
-  players.forEach(p => p.runs.sort((a, b) => b.Points - a.Points));
+  RUNS.forEach(r => { const p = playerByName.get(r.Player); p.runs.push(r); r.p = p; });
 
-  const allRuns = [...D.runs].sort((a, b) => b.Points - a.Points);
-  allRuns.forEach((r, i) => { r.overall = i + 1; });
-  const maxElo = Math.max(...players.map(p => p.Elo));
-  const ranked = players.filter(p => p.Ranked).length;
+  const allRuns = RUNS.slice();
+  const prep = NinjaScore.prepare(D);
+  let maxElo = 1, ranked = 0;
+  function rescore() {
+    const res = NinjaScore.score(D, S, prep);
+    RUNS.forEach((r, i) => { r.score = res.runScore[i]; r.Points = NinjaScore.roundEven(r.score); r.RunLevel = res.runLevel[i]; });
+    res.players.forEach((s, i) => Object.assign(byIndex[i], s));
+    players.sort((a, b) => b.Elo - a.Elo || b.PlayerScore - a.PlayerScore);
+    ranked = 0;
+    players.forEach(p => { p.Place = p.Ranked ? ++ranked : null; p.runs.sort((a, b) => b.score - a.score); });
+    allRuns.sort((a, b) => b.score - a.score);
+    allRuns.forEach((r, i) => { r.overall = i + 1; });
+    maxElo = Math.max(1, ...players.map(p => p.Elo));
+  }
 
   $("#updated").textContent = "updated " + new Date(D.generated + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-  $("#stats").innerHTML = [
-    [ranked, "ranked players"], [allRuns.length, "runs"], [trackList.length, "tracks"]
-  ].map(([n, l]) => `<div class="stat"><b data-count="${n}">${fmtInt(n)}</b><small>${l}</small></div>`).join("");
+  const renderStats = () => {
+    $("#stats").innerHTML = [
+      [ranked, "ranked players"], [allRuns.length, "runs"], [trackList.length, "tracks"]
+    ].map(([n, l]) => `<div class="stat"><b data-count="${n}">${fmtInt(n)}</b><small>${l}</small></div>`).join("");
+    $("#min-runs").textContent = S.min_runs;
+  };
 
   // Pieces
   const rankClass = r => `r-${esc(r.replace(/ (I|II|III)$/, "").replace(/ /g, "-"))}`;   // Tier (I, II, III) shares its rank's colour
@@ -568,15 +821,20 @@ footer p { margin: 0; max-width: 65ch; }
   const faults = f => `<span class="flt${f === 0 ? " zero" : ""}"${f === 0 ? ' title="Zero faults"' : ""}>${f}</span>`;
 
   // State
-  const state = { q: "", unranked: true, runsShown: 100, levels: new Set(), missing: null };
+  const PAGE = 100;   // Rows per page in long tables; "Show more" adds another page
+  const state = { q: "", unranked: true, shown: PAGE, levels: new Set(), missing: null, calc: { track: null, trackText: "", faults: "", time: "" } };
   try { const s = JSON.parse(localStorage.getItem("np-prefs") || "{}"); if (typeof s.unranked === "boolean") state.unranked = s.unranked; } catch (e) {}
   const savePrefs = () => { try { localStorage.setItem("np-prefs", JSON.stringify({ unranked: state.unranked })); } catch (e) {} };
   const match = (...fields) => !state.q || fields.some(f => f.toLowerCase().includes(state.q));
   let lastList = "players";
 
+  // "Show more" row under a paged table; "Show all" only once the rest is small enough to draw at once
+  const moreRow = left => left > 0 ? `<div class="more"><button class="btn" id="more">Show ${fmtInt(Math.min(left, PAGE))} more <span style="color:var(--muted);font-weight:500">of ${fmtInt(left)}</span></button>${left <= 2000 ? '<button class="btn" id="all" style="margin-left:8px">Show all</button>' : ""}</div>` : "";
+
   // Views
   function viewPlayers() {
-    const list = players.filter(p => (state.unranked || p.Ranked) && match(p.Player));
+    const all = players.filter(p => (state.unranked || p.Ranked) && match(p.Player));
+    const list = all.slice(0, state.shown);
     const top3 = !state.q ? players.filter(p => p.Ranked).slice(0, 3) : [];
     const body = list.map(p => `
       <tr class="${rankClass(p.Rank)}${p.Ranked ? "" : " dim"}">
@@ -601,12 +859,14 @@ footer p { margin: 0; max-width: 65ch; }
       <div class="card"><div class="scroll"><table>
         <thead><tr><th>#</th><th>Player</th><th>Rank</th><th class="num">Elo</th><th class="num hide-sm">Level</th><th class="num hide-sm">Runs</th></tr></thead>
         <tbody>${body || `<tr><td colspan="6" class="empty">No players match &ldquo;${esc(state.q)}&rdquo;.</td></tr>`}</tbody>
-      </table></div></div>`;
+      </table></div>
+      ${moreRow(all.length - list.length)}
+      </div>`;
   }
 
   function viewRuns() {
     const list = allRuns.filter(r => match(r.Player, r.Track));
-    const shown = list.slice(0, state.runsShown);
+    const shown = list.slice(0, state.shown);
     const body = shown.map(r => `
       <tr>
         <td class="pos${posClass(r.overall)}">${r.overall}</td>
@@ -625,7 +885,7 @@ footer p { margin: 0; max-width: 65ch; }
         <thead><tr><th>#</th><th>Player</th><th>Track</th><th class="num">Faults</th><th class="num hide-sm">Time</th><th class="num">Points</th></tr></thead>
         <tbody>${body || `<tr><td colspan="6" class="empty">No runs match &ldquo;${esc(state.q)}&rdquo;.</td></tr>`}</tbody>
       </table></div>
-      ${left > 0 ? `<div class="more"><button class="btn" id="more-runs">Show ${fmtInt(Math.min(left, 100))} more <span style="color:var(--muted);font-weight:500">of ${fmtInt(left)}</span></button><button class="btn" id="all-runs" style="margin-left:8px">Show all</button></div>` : ""}
+      ${moreRow(left)}
       </div>`;
   }
 
@@ -655,7 +915,8 @@ footer p { margin: 0; max-width: 65ch; }
   }
 
   function viewTrack(t) {
-    const list = t.runs.filter(r => match(r.Player));
+    const all = t.runs.filter(r => match(r.Player));
+    const list = all.slice(0, state.shown);
     const body = list.map(r => `
       <tr>
         <td class="pos${posClass(r.trackPos)}">${r.trackPos}</td>
@@ -683,8 +944,80 @@ footer p { margin: 0; max-width: 65ch; }
       <div class="card"><div class="scroll"><table>
         <thead><tr><th>#</th><th>Player</th><th class="num">Faults</th><th class="num">Time</th><th class="num hide-sm">Run level</th><th class="num">Points</th></tr></thead>
         <tbody>${body || `<tr><td colspan="6" class="empty">No runs by &ldquo;${esc(state.q)}&rdquo; on this track.</td></tr>`}</tbody>
-      </table></div></div>
-      ${t.VoteCount ? "" : `<p class="note">Nobody has voted on this track yet, so it counts at its flat level of ${t.Level}.</p>`}`;
+      </table></div>
+      ${moreRow(all.length - list.length)}
+      </div>
+      ${t.VoteCount ? "" : `<p class="note">Nobody has voted on this track yet, so it counts at its flat level of ${t.Level}.</p>`}
+      <p class="note"><a class="lnk" href="#calc:${t.slug}" style="color:var(--accent)">Score a run on this track &rarr;</a></p>`;
+  }
+
+  // Points calculator: any faults and time on any track, scored with the current settings against the track's current runs
+  const trackLabel = t => `${t.Track} (level ${t.Level})`;
+  const trackByLabel = new Map(trackList.map(t => [trackLabel(t).toLowerCase(), t]));
+  const byName = new Map();   // A bare track name finds its track when only one level has a track by that name
+  trackList.forEach(t => { const k = t.Track.toLowerCase(); byName.set(k, byName.has(k) ? null : t); });
+  const findTrack = s => { const k = s.trim().toLowerCase(); return trackByLabel.get(k) || byName.get(k) || null; };
+  // "1:23.456", "1:23", "83.456" or "83" (seconds) to ms; null if it isn't a time
+  const parseTime = s => {
+    s = s.trim();
+    let m = s.match(/^(\d+):(\d{1,2})(?:\.(\d{1,3}))?$/);
+    if (m) return +m[1] * 60000 + +m[2] * 1000 + +(m[3] || "0").padEnd(3, "0");
+    m = s.match(/^(\d+)(?:\.(\d{1,3}))?$/);
+    return m ? +m[1] * 1000 + +(m[2] || "0").padEnd(3, "0") : null;
+  };
+  const fmtSigned = (v, d) => (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(d);
+
+  function calcResult() {
+    const t = state.calc.track;
+    if (!t) return `<p class="calc-empty">${state.calc.trackText.trim() ? "No track by that name. Pick one from the list." : "Pick a track to start."}</p>`;
+    const scoreRun = NinjaScore.runScorer(D, S, prep);
+    const base = scoreRun(t.ti, 1, 1);   // Only for the track's medians
+    const fText = state.calc.faults.trim(), tText = state.calc.time.trim();
+    const f = fText === "" ? base.medianFaults : Number(fText);
+    const tm = tText === "" ? base.medianTime : parseTime(tText);
+    if (!(Number.isFinite(f) && f >= 0 && f <= 499) || tm == null || tm <= 0 || tm >= 1800000)
+      return `<p class="calc-empty">${tm == null ? "Times look like 1:23.456" : "Faults go from 0 to 499"}.</p>`;
+    const r = scoreRun(t.ti, f, tm), points = Math.round(r.points);
+    const trackPlace = t.runs.filter(x => x.Faults < f || (x.Faults === f && x.Time < tm)).length + 1;
+    const overall = allRuns.filter(x => x.score > r.points).length + 1;
+    const fadeAt = S.zero_fault_taper * r.medianFaults;
+    const bonusText = f === 0 ? `full bonus` : r.bonus > 0 ? `${Math.round(r.bonus / r.fullBonus * 100)}% kept, gone at ${tidy(fadeAt).toFixed(1)}f` : `none past ${tidy(fadeAt).toFixed(1)}f`;
+    const line = (k, v, note) => `<div class="calc-line"><span>${k}</span><b>${v}</b>${note ? `<small>${note}</small>` : ""}</div>`;
+    return `
+      <div class="calc-top">
+        <div><small>Points</small><b class="calc-pts">${fmtInt(points)}</b></div>
+        <div class="calc-place">
+          <span><b>${ord(trackPlace)}</b> of ${fmtInt(t.runs.length + 1)} on ${esc(t.Track)}</span>
+          <span><b>${ord(overall)}</b> of ${fmtInt(allRuns.length + 1)} runs overall</span>
+        </div>
+      </div>
+      <div class="calc-lines">
+        ${line("Track rating", r.rating.toFixed(2), t.VoteCount ? `median of ${t.VoteCount} votes` : "no votes yet, flat level")}
+        ${line("0f bonus", `${fmtSigned(r.bonus, 2)} levels`, `${bonusText} (up to ${r.fullBonus.toFixed(2)})`)}
+        ${line("Time", `${fmtSigned(r.timeShift, 3)} levels`, `${fmtTime(Math.round(tm))} against a median of ${fmtTime(Math.round(r.medianTime))}`)}
+        ${line("Scored at", `level ${r.level.toFixed(2)}`, `a median pass there is worth ${fmtInt(Math.round(r.worth))}`)}
+        ${line("Faults", `×${r.mult.toFixed(3)}`, `${tidy(f)}f against a median of ${r.medianFaults.toFixed(1)}; most faults can move it is ±${tidy(r.cap * 100)}%`)}
+        ${line("Points", fmtInt(points), `${fmtInt(Math.round(r.worth))} × ${r.mult.toFixed(3)}`)}
+      </div>`;
+  }
+
+  function viewCalc(fromTrack) {
+    if (fromTrack) { state.calc.track = fromTrack; state.calc.trackText = trackLabel(fromTrack); }
+    const c = state.calc;
+    return `
+      <div class="head"><div><h2>Points calculator</h2><p>Score a run on any track with the current scoring settings. Leave faults or time blank for the track median</p></div></div>
+      <div class="calc">
+        <div class="card calc-form">
+          <label class="calc-field"><span>Track</span>
+            <input id="calc-track" list="calc-tracks" placeholder="Type a track name" autocomplete="off" value="${esc(c.trackText)}"></label>
+          <datalist id="calc-tracks">${trackList.map(t => `<option value="${esc(trackLabel(t))}"></option>`).join("")}</datalist>
+          <label class="calc-field"><span>Faults</span>
+            <span class="calc-in"><input id="calc-faults" type="number" inputmode="numeric" min="0" max="499" step="1" placeholder="median" value="${esc(c.faults)}"><button type="button" class="chipbtn" data-calc-median="faults">Median</button><button type="button" class="chipbtn" data-calc-zero>0f</button></span></label>
+          <label class="calc-field"><span>Time</span>
+            <span class="calc-in"><input id="calc-time" inputmode="decimal" placeholder="median, or 1:23.456" autocomplete="off" value="${esc(c.time)}"><button type="button" class="chipbtn" data-calc-median="time">Median</button></span></label>
+        </div>
+        <div class="card calc-out" id="calc-out" aria-live="polite">${calcResult()}</div>
+      </div>`;
   }
 
   function viewPlayer(p) {
@@ -702,7 +1035,7 @@ footer p { margin: 0; max-width: 65ch; }
     return `
       <a class="back" href="#${lastList}">&larr; Back to ${lastList === "runs" ? "top runs" : lastList}</a>
       <section class="hero">
-        <div><div class="eyebrow">${p.Ranked ? `${ord(p.Place)} place` : `Unranked &middot; needs 7 runs`}</div><h2>${esc(p.Player)}</h2></div>
+        <div><div class="eyebrow">${p.Ranked ? `${ord(p.Place)} place` : `Unranked &middot; needs ${S.min_runs} runs`}</div><h2>${esc(p.Player)}</h2></div>
         <div class="facts">
           <div class="fact"><small>Elo</small><b data-count="${p.Elo}">${fmtInt(p.Elo)}</b></div>
           <div class="fact"><small>Rank</small><b class="txt">${rankChip(p.Rank)}</b></div>
@@ -771,6 +1104,7 @@ footer p { margin: 0; max-width: 65ch; }
   function current() {
     const h = location.hash.slice(1);
     if (h === "runs" || h === "tracks" || h === "players") return { view: h };
+    if (h === "calc" || h.startsWith("calc:")) return { view: "calc", t: trackBySlug.get(h.slice(5)) };
     if (trackBySlug.has(h)) return { view: "track", t: trackBySlug.get(h) };
     if (playerBySlug.has(h)) return { view: "player", p: playerBySlug.get(h) };
     return { view: "players" };
@@ -781,7 +1115,7 @@ footer p { margin: 0; max-width: 65ch; }
     const key = location.hash;
     if (["players", "runs", "tracks"].includes(c.view)) lastList = c.view;
     document.querySelectorAll(".seg a").forEach(a => a.setAttribute("aria-current", a.dataset.view === (["track", "player"].includes(c.view) ? lastList : c.view) ? "page" : "false"));
-    const html = c.view === "runs" ? viewRuns() : c.view === "tracks" ? viewTracks() : c.view === "track" ? viewTrack(c.t) : c.view === "player" ? viewPlayer(c.p) : viewPlayers();
+    const html = c.view === "runs" ? viewRuns() : c.view === "tracks" ? viewTracks() : c.view === "track" ? viewTrack(c.t) : c.view === "player" ? viewPlayer(c.p) : c.view === "calc" ? viewCalc(c.t) : viewPlayers();
     const app = $("#app"), entering = key !== prevKey;
     app.innerHTML = html;
     app.classList.toggle("enter", entering && !calm.matches);
@@ -792,17 +1126,36 @@ footer p { margin: 0; max-width: 65ch; }
     prevKey = key;
   }
 
-  $("#q").addEventListener("input", e => { state.q = e.target.value.trim().toLowerCase(); state.runsShown = 100; render(); });
+  $("#q").addEventListener("input", e => { state.q = e.target.value.trim().toLowerCase(); state.shown = PAGE; render(); });
   window.addEventListener("hashchange", () => {
-    const go = () => { state.q = ""; $("#q").value = ""; state.runsShown = 100; state.missing = null; render(); };
+    const go = () => { state.q = ""; $("#q").value = ""; state.shown = PAGE; state.missing = null; render(); };
     document.startViewTransition && !calm.matches ? document.startViewTransition(go) : go();
+  });
+  // Calculator inputs only redraw the result, so typing keeps its place
+  $("#app").addEventListener("input", e => {
+    const id = e.target.id, c = state.calc;
+    if (id === "calc-track") { c.trackText = e.target.value; c.track = findTrack(e.target.value); }
+    else if (id === "calc-faults") c.faults = e.target.value;
+    else if (id === "calc-time") c.time = e.target.value;
+    else return;
+    $("#calc-out").innerHTML = calcResult();
   });
   $("#app").addEventListener("click", e => {
     const b = e.target.closest("button");
     if (!b) return;
-    if (b.id === "tg-unranked") { state.unranked = !state.unranked; savePrefs(); render(); }
-    else if (b.id === "more-runs") { state.runsShown += 100; render(); }
-    else if (b.id === "all-runs") { state.runsShown = Infinity; render(); }
+    if (b.dataset.calcMedian || b.dataset.calcZero != null) {
+      const c = state.calc, t = c.track;
+      if (b.dataset.calcZero != null) c.faults = "0";
+      else if (t && b.dataset.calcMedian === "faults") c.faults = String(t.median);
+      else if (t) c.time = fmtTime(Math.round(prep[t.ti].medianTime));
+      $("#calc-faults").value = c.faults;
+      $("#calc-time").value = c.time;
+      $("#calc-out").innerHTML = calcResult();
+      return;
+    }
+    if (b.id === "tg-unranked") { state.unranked = !state.unranked; state.shown = PAGE; savePrefs(); render(); }
+    else if (b.id === "more") { state.shown += PAGE; render(); }
+    else if (b.id === "all") { state.shown = Infinity; render(); }
     else if (b.dataset.missing) {
       const l = +b.dataset.missing;
       state.missing = state.missing === l ? null : l;
@@ -812,6 +1165,182 @@ footer p { margin: 0; max-width: 65ch; }
     else if (b.dataset.level) { const l = +b.dataset.level; state.levels.has(l) ? state.levels.delete(l) : state.levels.add(l); render(); }
   });
 
+
+  // Settings panel: a few numbers, each driving one or more of the Python constants.
+  // Step rows set every level in their range; the 0f bonus and fault effect rows scale their whole table, so its shape by level is kept
+  const tidy = v => +v.toFixed(6);
+  // A median pass's points at a level, from the settings as typed (so notes move before the board finishes rescoring)
+  const pts = l => {
+    const v = NinjaScore.worthFn(S)(l);
+    return v >= 100 ? fmtInt(Math.round(v)) : v >= 1 ? v.toFixed(1) : v.toPrecision(2);
+  };
+  const steps = (label, pick, note) => ({ label, note, unit: "×", step: 0.5, min: 1.01, out: v => `${tidy(v)}×`,
+    get: src => src.level_steps.find(pick)[1],
+    set: v => S.level_steps.forEach(r => { if (pick(r)) r[1] = v; }) });
+  const scaled = (key, ref, label, o) => {
+    const base = NinjaScore.interp(ref, DEF[key]);
+    return { label, ...o, get: src => NinjaScore.interp(ref, src[key]),
+             set: v => { S[key] = DEF[key].map(([x, y]) => [x, tidy(y * v / base)]); } };
+  };
+  const scalar = (key, label, o) => ({ label, ...o, get: src => src[key], set: v => { S[key] = v; } });
+  const row = (key, i, label, o) => ({ label, ...o, get: src => src[key][i][1], set: v => { S[key][i][1] = v; } });   // One row of a table
+  const capMax = Math.floor(99 * NinjaScore.interp(7, DEF.fault_cap) / Math.max(...DEF.fault_cap.map(r => r[1])));   // Keeps every level's cap under 100%
+  const GROUPS = [
+    { title: "Points per level", hint: "A median pass, as a multiple of a median pass one level down. A median level 8 pass is pinned at 1,000 points, so each step moves the levels on the far side of 8 from it", rows:
+      DEF.level_steps.map(([l], i) => row("level_steps", i, `Level ${l + 1}`, { unit: "×", step: 0.1, min: 1.01, out: v => `${tidy(v)}× level ${l}`,
+        note: () => `A median level ${l + 1} pass is worth ${pts(l + 1)}${l + 1 === 10 ? `. Also sets tracks rated between 9 and 10: a 9.5 like Claymore is worth ${pts(9.5)}` : ""}` })) },
+    { title: "0f runs", hint: "A 0f run counts as if its track were rated this many levels higher, by track level (straight lines in between)", rows: [
+      ...DEF.zero_fault_bonus.map(([l], i) => row("zero_fault_bonus", i, `0f bonus, level ${l}`, { unit: "levels", step: 0.05, min: 0.01, out: v => `+${tidy(v)} levels` })),
+      scalar("zero_fault_taper", "Bonus fades by", { unit: "% med", pct: true, step: 1, min: 0.1, out: v => `${tidy(v * 100)}% of the track's median faults`,
+        note: () => { const t = S.zero_fault_taper * 60; return `Near-0f runs keep part of the bonus. It shrinks with each fault and is gone at this share of the track's median faults: on a 60f-median track, ${tidy(t / 2)}f keeps half and ${tidy(t)}f none`; } }) ] },
+    { title: "Faults", hint: "", rows: [
+      scaled("fault_cap", 7, "Fault effect", { unit: "±%", pct: true, step: 1, min: 0, max: capMax, out: v => `±${tidy(v * 100)}% at level 7`,
+        note: () => `Most faults can add or take away, as a share of a run's points. Shown at level 7; level 1 gets ±${tidy(S.fault_cap[0][1] * 100)}%, level 9 ±${tidy(NinjaScore.interp(9, S.fault_cap) * 100)}%` }),
+      scalar("fault_steepness", "Steepness", { unit: "", step: 0.1, min: 0.01, out: v => `${tidy(v)}`,
+        note: () => { const k = S.fault_steepness, a = Math.tanh(k * Math.log(2)) * 100, b = Math.tanh(k * Math.log(4)) * 100;
+          return `How much of the fault effect a run gets for being cleaner than the median. Half the median faults gets ${a.toFixed(0)}% of it and a quarter gets ${b.toFixed(0)}%; double and four times the median lose the same. Lower saves the effect for very clean runs, higher gives most of it to any run clearly under the median`; } }) ] },
+    { title: "Player score", hint: "A player's runs are added up best first", rows: [
+      scalar("run_decay", "Each run counts", { unit: "% of last", pct: true, step: 1, min: 1, max: 100, out: v => `${tidy(v * 100)}% of the run above it`,
+        note: () => { const d = S.run_decay; return `Of the run above it: the 2nd best counts ${tidy(d * 100)}%, the 5th ${tidy(d ** 4 * 100).toFixed(0)}%, the 10th ${tidy(d ** 9 * 100).toFixed(0)}%`; } }),
+      scalar("max_counted_runs", "Runs counted", { unit: "0 = all", int: true, step: 1, min: 0, out: v => v ? `best ${v}` : "all" }),
+      scalar("min_runs", "Runs to be ranked", { unit: "runs", int: true, step: 1, min: 1, out: v => `${v} runs` }) ] },
+  ];
+  const FIELDS = GROUPS.flatMap(g => g.rows);
+  FIELDS.forEach((f, i) => { f.id = "set-" + i; });
+  const fieldById = new Map(FIELDS.map(f => [f.id, f]));
+  const toInput = f => String(tidy(f.pct ? f.get(S) * 100 : f.get(S)));
+  const changed = f => Math.abs(f.get(S) - f.get(DEF)) > 1e-9;
+  const isCustom = () => EDITABLE.some(k => JSON.stringify(S[k]) !== JSON.stringify(DEF[k]));
+
+  function buildPanel() {
+    $("#set-groups").innerHTML = GROUPS.map((g, gi) => `
+      <section class="set-group" data-group="${gi}">
+        <h3>${esc(g.title)}<span class="dot" hidden></span></h3>
+        ${g.hint ? `<p class="set-hint">${esc(g.hint)}</p>` : ""}
+        <div class="set-body">${g.rows.map(f => `
+          <div class="set-row" data-id="${f.id}">
+            <label for="${f.id}">${esc(f.label)}</label>
+            <input id="${f.id}" type="number" inputmode="decimal" step="${f.step}" min="${f.min}"${f.max != null ? ` max="${f.max}"` : ""} value="${toInput(f)}">
+            <span class="set-unit">${esc(f.unit)}</span>
+            ${f.note ? `<small class="set-sub" data-note="${f.id}"></small>` : ""}
+          </div>`).join("")}
+        </div>
+      </section>`).join("");
+    markPanel();
+  }
+
+  function markPanel() {
+    FIELDS.forEach(f => {
+      $(`.set-row[data-id="${f.id}"]`).classList.toggle("changed", changed(f));
+      if (f.note) $(`[data-note="${f.id}"]`).textContent = f.note();
+    });
+    GROUPS.forEach((g, gi) => { $(`.set-group[data-group="${gi}"] .dot`).hidden = !g.rows.some(changed); });
+    const custom = isCustom();
+    $("#set-status").innerHTML = custom
+      ? "<b>Custom scoring.</b> Only on this device: the published board uses the defaults. Export to share these or make them the defaults."
+      : "Default scoring, as published. Change any number and the whole board rescores.";
+    $("#custom-tag").hidden = !custom;
+    $("#set-dot").hidden = !custom;
+  }
+
+  // Reads one input: a number in range (whole for counts), else the field is flagged and the setting left as it was
+  function readField(f, input) {
+    const raw = input.value.trim(), v = Number(raw);
+    const ok = raw !== "" && Number.isFinite(v) && v >= f.min && (f.max == null || v <= f.max) && (!f.int || Number.isInteger(v));
+    input.classList.toggle("bad", !ok);
+    if (ok) f.set(f.pct ? tidy(v / 100) : v);
+    return ok;
+  }
+
+  let timer = 0;
+  const saveSettings = () => {
+    try {
+      if (isCustom()) localStorage.setItem(SAVE_KEY, JSON.stringify(Object.fromEntries(EDITABLE.map(k => [k, S[k]]))));
+      else localStorage.removeItem(SAVE_KEY);
+    } catch (e) {}
+  };
+  const applySettings = () => { rescore(); renderStats(); markPanel(); render(); saveSettings(); };
+  $("#set-groups").addEventListener("input", e => {
+    const f = fieldById.get(e.target.id);
+    if (!f || !readField(f, e.target)) return;
+    clearTimeout(timer);
+    markPanel();   // Notes and markers follow the typing straight away
+    timer = setTimeout(applySettings, 150);   // Rescoring every run takes a moment, so wait for typing to pause
+  });
+  $("#set-groups").addEventListener("change", e => {   // Leaving a field with an invalid entry puts back the value in use
+    const f = fieldById.get(e.target.id);
+    if (f && e.target.classList.contains("bad")) { e.target.value = toInput(f); e.target.classList.remove("bad"); }
+  });
+  $("#set-reset").addEventListener("click", () => {
+    EDITABLE.forEach(k => { S[k] = clone(DEF[k]); });
+    FIELDS.forEach(f => { const el = $("#" + f.id); el.value = toInput(f); el.classList.remove("bad"); });
+    applySettings();
+  });
+
+  // Copy as Python: the editable constants as points_calculator.py writes them, to paste over the ones there
+  const pythonSettings = () => ["# Scoring settings from the leaderboard page: paste over the matching constants in points_calculator.py"]
+    .concat(EDITABLE.map(k => {
+      const v = S[k];
+      return Array.isArray(v)
+        ? `${k.toUpperCase()} = [\n${v.map(([x, y]) => `    (${x}, ${tidy(y)}),`).join("\n")}\n]`
+        : `${k.toUpperCase()} = ${tidy(v)}`;
+    })).join("\n") + "\n";
+
+  // Export: every setting as plain text to paste into a message, changed ones with their default beside them
+  const exportText = () => {
+    const custom = isCustom();
+    const lines = [`Ninja Points scoring settings (${custom ? "custom" : "published defaults"})`, ""];
+    GROUPS.forEach(g => {
+      lines.push(g.title);
+      g.rows.forEach(f => lines.push(`  ${f.label}: ${f.out(f.get(S))}${changed(f) ? `  (default ${f.out(f.get(DEF))})` : ""}`));
+      lines.push("");
+    });
+    lines.push("Median pass worth",
+      `  Level 1 ${pts(1)}, level 4 ${pts(4)}, level 7 ${pts(7)}, level 8 ${pts(8)}, level 9 ${pts(9)}, a 9.5 ${pts(9.5)}, level 10 ${pts(10)}`, "",
+      "Fixed (not in the panel)",
+      `  Fault median prior: ${tidy(DEF.fault_median_prior_runs)} runs`,
+      `  Time shift: up to ${tidy(DEF.time_shift_max)} levels`);
+    return lines.join("\n");
+  };
+  const copyText = async (btn, text, label) => {
+    let done = false;
+    try { await navigator.clipboard.writeText(text); done = true; } catch (err) {
+      const ta = document.createElement("textarea");
+      ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      try { done = document.execCommand("copy"); } catch (err2) {}
+      ta.remove();
+    }
+    btn.textContent = done ? "Copied" : "Copy failed: select the text instead";
+    setTimeout(() => { btn.textContent = label; }, 1600);
+  };
+  const dlg = $("#export");
+  $("#set-export").addEventListener("click", () => {
+    $("#export-text").value = exportText();
+    dlg.showModal();
+    $("#export-text").select();
+  });
+  $("#export-close").addEventListener("click", () => dlg.close());
+  dlg.addEventListener("click", e => { if (e.target === dlg) dlg.close(); });   // A click on the backdrop closes it
+  $("#export-copy").addEventListener("click", e => copyText(e.currentTarget, $("#export-text").value, "Copy text"));
+  $("#export-py").addEventListener("click", e => copyText(e.currentTarget, pythonSettings(), "Copy as Python"));
+
+  // Narrow screens: the panel is a drawer
+  const drawer = open => {
+    $("#settings").classList.toggle("open", open);
+    $("#scrim").hidden = !open;
+    $("#set-open").setAttribute("aria-expanded", open);
+    if (open) $("#set-close").focus();
+    else if ($("#settings").contains(document.activeElement)) $("#set-open").focus();
+  };
+  $("#set-open").addEventListener("click", () => drawer(!$("#settings").classList.contains("open")));
+  $("#set-close").addEventListener("click", () => drawer(false));
+  $("#scrim").addEventListener("click", () => drawer(false));
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && $("#settings").classList.contains("open")) drawer(false); });
+
+  rescore();
+  renderStats();
+  buildPanel();
   render();
   countUp($("#stats"));
 })();

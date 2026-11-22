@@ -6,3 +6,10 @@ __pycache__/
 
 # Local test data, not published
 *_fake.csv
+
+# Data stays local: the published page has it baked in, packed (see build_site.py)
+*.csv
+
+# Scoring experiments
+/experiments/
+/output/fault_model*/

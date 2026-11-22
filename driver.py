@@ -84,5 +84,5 @@ if __name__ == "__main__":
     ratings.write_csv(TRACK_RATINGS_OUTPUT)
     print(f"Wrote {ratings.height} track ratings to {TRACK_RATINGS_OUTPUT}")
 
-    build_site(runs, votes, elo)
+    build_site(runs, votes)
     print(f"Wrote the leaderboard page to {SITE_OUTPUT}")
