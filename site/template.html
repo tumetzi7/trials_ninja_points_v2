@@ -154,8 +154,10 @@ main { padding-block: 18px 56px; min-width: 0; }
 .set-unit { color: var(--muted); font-size: 12px; font-family: var(--font-data); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .set-foot { position: sticky; bottom: 0; margin-top: auto; display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); background: var(--surface); }
 .set-foot .btn { flex: 1; padding: 7px 10px; font-size: 13px; }
+.set-toggle { display: inline-flex; }
+.set-close { display: none; }
 .set-toggle, .set-close {
-  display: none; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); border-radius: 999px;
+  align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); border-radius: 999px;
   padding: 6px 12px; font-weight: 600; font-size: 14px; cursor: pointer;
 }
 .set-toggle:hover, .set-close:hover { border-color: var(--accent); color: var(--accent); }
@@ -213,7 +215,12 @@ main { padding-block: 18px 56px; min-width: 0; }
     transform: translateX(-105%); visibility: hidden; transition: transform .25s cubic-bezier(.2,.7,.2,1), visibility .25s;
   }
   .settings.open { transform: none; visibility: visible; box-shadow: 0 0 40px rgb(0 0 0 / .3); }
-  .set-toggle, .set-close { display: inline-flex; }
+  .set-close { display: inline-flex; }
+}
+@media (min-width: 1081px) {   /* Wide screens: the Scoring button hides the column and gives the board the full width */
+  .layout.set-hidden { grid-template-columns: minmax(0, 1fr); }
+  .layout.set-hidden .settings { display: none; }
+  .set-toggle[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); }
 }
 
 /* Section head */
@@ -512,6 +519,7 @@ button.lv:hover:not(:disabled) { border-color: var(--accent); }
 button.lv[aria-expanded="true"] { border-color: var(--accent); background: var(--accent-soft); }
 button.lv:disabled { cursor: default; }
 .lv-hint { font-size: 12px; color: var(--muted); font-weight: 500; }
+.lv-toggles { margin-top: 2px; }
 button.lv[aria-expanded="true"] .lv-hint, button.lv:hover:not(:disabled) .lv-hint { color: var(--accent); }
 .missing { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; display: grid; gap: 10px; }
 .missing-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
@@ -578,7 +586,7 @@ footer p { margin: 0; max-width: 65ch; }
   </div>
 </div>
 
-<div class="wrap layout">
+<div class="wrap layout" id="layout">
   <aside class="settings" id="settings" aria-label="Scoring settings">
     <div class="set-head"><h2>Scoring</h2><button class="set-close" id="set-close" aria-label="Close scoring settings">Close</button></div>
     <p class="set-note" id="set-status"></p>
@@ -823,8 +831,10 @@ var NinjaScore = (() => {
   // State
   const PAGE = 100;   // Rows per page in long tables; "Show more" adds another page
   const state = { q: "", unranked: true, shown: PAGE, levels: new Set(), missing: null, calc: { track: null, trackText: "", faults: "", time: "" } };
-  try { const s = JSON.parse(localStorage.getItem("np-prefs") || "{}"); if (typeof s.unranked === "boolean") state.unranked = s.unranked; } catch (e) {}
-  const savePrefs = () => { try { localStorage.setItem("np-prefs", JSON.stringify({ unranked: state.unranked })); } catch (e) {} };
+  const prefs = { unranked: true, missing: true, settings: true };   // Show unranked players, missing tracks on player pages, the scoring column (wide screens)
+  try { const s = JSON.parse(localStorage.getItem("np-prefs") || "{}"); for (const k in prefs) if (typeof s[k] === "boolean") prefs[k] = s[k]; } catch (e) {}
+  state.unranked = prefs.unranked;
+  const savePrefs = () => { prefs.unranked = state.unranked; try { localStorage.setItem("np-prefs", JSON.stringify(prefs)); } catch (e) {} };
   const match = (...fields) => !state.q || fields.some(f => f.toLowerCase().includes(state.q));
   let lastList = "players";
 
@@ -1044,16 +1054,19 @@ var NinjaScore = (() => {
           <div class="fact"><small>Track records</small><b>${records}</b></div>
           <div class="fact"><small>0f runs</small><b>${flawless}</b></div>
         </div>
+        <div class="toggles lv-toggles"><button class="chipbtn" id="tg-missing" aria-pressed="${prefs.missing}">Show missing tracks</button></div>
         <div class="levels">${levelsDesc.map(l => {
           const done = new Set(p.runs.filter(r => r.Level === l).map(r => r.Track)).size, total = levelTotals[l];
+          const bits = `<span class="lv-top"><span>Level ${l}s</span><b>${done}<span>/${total}</span></b></span>
+            <span class="lv-bar"><i style="width:${(done / total * 100).toFixed(1)}%"></i></span>`;
+          if (!prefs.missing) return `<div class="lv${done === total ? " full" : ""}">${bits}</div>`;
           const open = state.missing === l;
           return `<button class="lv${done === total ? " full" : ""}" data-missing="${l}" aria-expanded="${open}" ${done === total ? "disabled" : ""}>
-            <span class="lv-top"><span>Level ${l}s</span><b>${done}<span>/${total}</span></b></span>
-            <span class="lv-bar"><i style="width:${(done / total * 100).toFixed(1)}%"></i></span>
+            ${bits}
             <small class="lv-hint">${done === total ? "All passed" : `${total - done} missing <span aria-hidden="true">${open ? "&#9652;" : "&#9662;"}</span>`}</small>
           </button>`;
         }).join("")}</div>
-        ${state.missing != null ? (() => {
+        ${prefs.missing && state.missing != null ? (() => {
           const have = new Set(p.runs.map(r => r.t));
           const miss = trackList.filter(t => t.Level === state.missing && !have.has(t));
           return miss.length ? `<div class="missing">
@@ -1154,6 +1167,7 @@ var NinjaScore = (() => {
       return;
     }
     if (b.id === "tg-unranked") { state.unranked = !state.unranked; state.shown = PAGE; savePrefs(); render(); }
+    else if (b.id === "tg-missing") { prefs.missing = !prefs.missing; state.missing = null; savePrefs(); render(); $("#tg-missing")?.focus(); }
     else if (b.id === "more") { state.shown += PAGE; render(); }
     else if (b.id === "all") { state.shown = Infinity; render(); }
     else if (b.dataset.missing) {
@@ -1325,7 +1339,15 @@ var NinjaScore = (() => {
   $("#export-copy").addEventListener("click", e => copyText(e.currentTarget, $("#export-text").value, "Copy text"));
   $("#export-py").addEventListener("click", e => copyText(e.currentTarget, pythonSettings(), "Copy as Python"));
 
-  // Narrow screens: the panel is a drawer
+  // Narrow screens: the panel is a drawer. Wide screens: the Scoring button shows or hides the column, remembered on this device
+  const narrow = matchMedia("(max-width: 1080px)");
+  const column = show => {
+    prefs.settings = show;
+    $("#layout").classList.toggle("set-hidden", !show);
+    if (!narrow.matches) $("#set-open").setAttribute("aria-expanded", show);
+  };
+  column(prefs.settings);
+  narrow.addEventListener("change", () => { if (narrow.matches) drawer(false); else { drawer(false); column(prefs.settings); } });
   const drawer = open => {
     $("#settings").classList.toggle("open", open);
     $("#scrim").hidden = !open;
@@ -1333,7 +1355,10 @@ var NinjaScore = (() => {
     if (open) $("#set-close").focus();
     else if ($("#settings").contains(document.activeElement)) $("#set-open").focus();
   };
-  $("#set-open").addEventListener("click", () => drawer(!$("#settings").classList.contains("open")));
+  $("#set-open").addEventListener("click", () => {
+    if (narrow.matches) drawer(!$("#settings").classList.contains("open"));
+    else { column(!prefs.settings); savePrefs(); }
+  });
   $("#set-close").addEventListener("click", () => drawer(false));
   $("#scrim").addEventListener("click", () => drawer(false));
   document.addEventListener("keydown", e => { if (e.key === "Escape" && $("#settings").classList.contains("open")) drawer(false); });
