@@ -6,7 +6,7 @@ from democratic_ratings import CORRECT_VOTER_LEAN, fetch_sheet, track_votes
 
 
 # Writes index.html (the leaderboard page, see build_site.py) and three CSVs:
-#   output/player_elo.csv - Every player's rank and Elo: Place, Player, Rank, Elo, Level (effective level), Runs, Ranked
+#   output/player_elo.csv - Every player's rank and Elo: Place, Player, Rank, Elo, Level (effective level), Runs, Ranked, RawPoints
 #   output/top_runs.csv - The best runs by points: Rank, Player, Track, Faults, Points
 #   data/track_ratings.csv - Every track's vote spread and both candidate ratings: Track, Level, VoteCount, MinRating, MaxRating, MedianRating, DemocraticRating
 
@@ -26,7 +26,8 @@ def player_elo(runs_df, votes_df=None):
         .with_columns(ranked.alias("Ranked"))
         .sort(["Elo", "PlayerScore"], descending=True)   # Everyone in Elo order; unranked players sit where their Elo puts them
         .with_columns(pl.when(ranked).then(ranked.cast(pl.Int64).cum_sum()).alias("Place"))   # Place counts ranked players only
-        .select("Place", "Player", "Rank", "Elo", pl.col("EffectiveLevel").round(2).alias("Level"), "Runs", "Ranked")
+        .select("Place", "Player", "Rank", "Elo", pl.col("EffectiveLevel").round(2).alias("Level"), "Runs", "Ranked",
+                pl.col("RawPoints").round(1))
     )
 
 

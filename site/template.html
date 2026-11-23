@@ -604,7 +604,7 @@ footer p { margin: 0; max-width: 65ch; }
 </dialog>
 
 <footer class="wrap">
-  <p>Runs are scored by track rating and how cleanly they were ridden, then combined best first into an Elo. Track leaderboards are ordered by faults, then time. Players need <span id="min-runs">7</span> runs to get a place. The scoring panel changes the scoring on this device only.</p>
+  <p>Runs are scored by track rating and how cleanly they were ridden, then combined best first into an Elo. Raw points add up every run on a flatter curve. Track leaderboards are ordered by faults, then time. Players need <span id="min-runs">7</span> runs to get a place. The scoring panel changes the scoring on this device only.</p>
 </footer>
 
 <script id="data" type="application/octet-stream">__DATA__</script>
@@ -659,11 +659,15 @@ var NinjaScore = (() => {
     return (ti, f, t) => {
       const rating = D.tracks[ti].Rating, med = medFaults[ti], mt = prep[ti].medianTime, c = cap(rating);
       const fullBonus = interp(Math.min(Math.max(rating, zb[0][0]), zb[zb.length - 1][0]), zb);
-      const bonus = Math.max(0, 1 - f / (S.zero_fault_taper * med)) * fullBonus;
+      // 0f gets the full bonus; 1f drops to low_fault_share of it (the cliff), fading to nothing by low_fault_reach of the median
+      const bonus = f === 0 ? fullBonus : S.low_fault_share * Math.max(0, 1 - f / (S.low_fault_reach * med)) * fullBonus;
       const timeShift = S.time_shift_max * Math.max(-1, (mt - t) / mt);
-      const level = rating + bonus + timeShift;
+      // From level 9 up, only top_rating_spread of the rating above its whole level counts (a 9.5 scores as 9.275 at 0.55)
+      const scoredRating = rating < 9 ? rating : Math.floor(rating) + (rating - Math.floor(rating)) * S.top_rating_spread;
+      const level = scoredRating + bonus + timeShift;
       const mult = f === 0 ? 1 + c : 1 + c * Math.tanh(S.fault_steepness * Math.log(med / f));
-      return { rating, medianFaults: med, medianTime: mt, cap: c, fullBonus, bonus, timeShift, level, worth: worth(level), mult, points: worth(level) * mult };
+      const raw = S.raw_points_at_level_1 * S.raw_points_step ** (level - 1) * mult;
+      return { rating, scoredRating, medianFaults: med, medianTime: mt, cap: c, fullBonus, bonus, timeShift, level, worth: worth(level), mult, points: worth(level) * mult, raw };
     };
   }
 
@@ -674,11 +678,12 @@ var NinjaScore = (() => {
     const levelFromWorth = w => interp(Math.log(w / scale), inv);
 
     const scoreRun = runScorer(D, S, prep);
-    const n = D.runs.length, runScore = new Float64Array(n), runLevel = new Float64Array(n);
+    const n = D.runs.length, runScore = new Float64Array(n), runLevel = new Float64Array(n), runRaw = new Float64Array(n);
     D.runs.forEach(([, ti, f, t], i) => {
       const r = scoreRun(ti, f, t);
       runLevel[i] = r.level;
       runScore[i] = r.points;
+      runRaw[i] = r.raw;
     });
 
     const eloFromLevel = l => Math.max(0, roundEven(interp(l, S.elo_curve)));
@@ -695,20 +700,20 @@ var NinjaScore = (() => {
     let ref = 0;
     for (let k = 0; k < S.min_runs; k++) ref += S.run_decay ** k;
     const limit = S.max_counted_runs || Infinity;
-    const scores = D.players.map(() => []), highest = D.players.map(() => -Infinity);
-    D.runs.forEach(([pi, ti], i) => { scores[pi].push(runScore[i]); highest[pi] = Math.max(highest[pi], D.tracks[ti].Level); });
+    const scores = D.players.map(() => []), highest = D.players.map(() => -Infinity), raw = new Float64Array(D.players.length);
+    D.runs.forEach(([pi, ti], i) => { scores[pi].push(runScore[i]); raw[pi] += runRaw[i]; highest[pi] = Math.max(highest[pi], D.tracks[ti].Level); });
     const players = scores.map((sc, pi) => {
       sc.sort((a, b) => b - a);
       let total = 0;
       for (let k = 0; k < sc.length && k < limit; k++) total += sc[k] * S.run_decay ** k;
       const level = levelFromWorth(total / ref), top = highest[pi] + 1;   // Rank gate: nothing above the rank of the hardest level passed
       return {
-        PlayerScore: total, Level: level, Runs: sc.length, Ranked: sc.length >= S.min_runs,
+        PlayerScore: total, RawPoints: raw[pi], Level: level, Runs: sc.length, Ranked: sc.length >= S.min_runs,
         Elo: level < top ? eloFromLevel(level) : eloFromLevel(top) - 1,
         Rank: rankFromLevel(Math.min(level, top - 1e-9)),
       };
     });
-    return { runScore, runLevel, players };
+    return { runScore, runLevel, runRaw, players };
   }
 
   return { interp, roundEven, prepare, score, worthFn, runScorer };
@@ -721,12 +726,12 @@ var NinjaScore = (() => {
   const D = JSON.parse(await new Response(packed.body.pipeThrough(new DecompressionStream("gzip"))).text());
   const RUNS = D.runs.map(([pi, ti, Faults, Time]) => {   // Rows index players and tracks (see build_site.py); points come from rescore()
     const t = D.tracks[ti];
-    return { Player: D.players[pi], Track: t.Track, Level: t.Level, Faults, Time, score: 0, Points: 0, RunLevel: 0 };
+    return { Player: D.players[pi], Track: t.Track, Level: t.Level, Faults, Time, score: 0, Points: 0, RunLevel: 0, raw: 0 };
   });
 
   // Scoring settings: the Python defaults, or this viewer's saved changes if they still fit the same rows
   const DEF = D.settings;
-  const EDITABLE = ["level_steps", "zero_fault_bonus", "zero_fault_taper", "fault_cap", "fault_steepness", "run_decay", "max_counted_runs", "min_runs"];   // What the panel can change
+  const EDITABLE = ["level_steps", "top_rating_spread", "zero_fault_bonus", "low_fault_share", "low_fault_reach", "fault_cap", "fault_steepness", "run_decay", "max_counted_runs", "min_runs", "raw_points_step"];   // What the panel can change
   const SAVE_KEY = "np-settings";
   const clone = o => JSON.parse(JSON.stringify(o));
   const fits = (v, d) => Array.isArray(d)
@@ -740,6 +745,7 @@ var NinjaScore = (() => {
   const $ = (s, el = document) => el.querySelector(s);
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const fmtInt = n => n.toLocaleString("en-US");
+  const fmtRaw = v => v >= 100 ? fmtInt(Math.round(v)) : v.toFixed(1);   // Raw points: small numbers keep a decimal
   const fmtTime = ms => {
     const m = Math.floor(ms / 60000), s = Math.floor(ms / 1000) % 60, r = ms % 1000;
     return `${m}:${String(s).padStart(2, "0")}.${String(r).padStart(3, "0")}`;
@@ -789,17 +795,21 @@ var NinjaScore = (() => {
 
   const allRuns = RUNS.slice();
   const prep = NinjaScore.prepare(D);
-  let maxElo = 1, ranked = 0;
+  const byRaw = players.slice();   // Everyone by raw points, re-sorted on every rescore
+  let maxElo = 1, maxRaw = 1, ranked = 0;
   function rescore() {
     const res = NinjaScore.score(D, S, prep);
-    RUNS.forEach((r, i) => { r.score = res.runScore[i]; r.Points = NinjaScore.roundEven(r.score); r.RunLevel = res.runLevel[i]; });
+    RUNS.forEach((r, i) => { r.score = res.runScore[i]; r.Points = NinjaScore.roundEven(r.score); r.RunLevel = res.runLevel[i]; r.raw = res.runRaw[i]; });
     res.players.forEach((s, i) => Object.assign(byIndex[i], s));
     players.sort((a, b) => b.Elo - a.Elo || b.PlayerScore - a.PlayerScore);
     ranked = 0;
     players.forEach(p => { p.Place = p.Ranked ? ++ranked : null; p.runs.sort((a, b) => b.score - a.score); });
+    byRaw.sort((a, b) => b.RawPoints - a.RawPoints);
+    byRaw.forEach((p, i) => { p.RawPlace = i + 1; });   // Raw points need no minimum runs: everyone has a place
     allRuns.sort((a, b) => b.score - a.score);
     allRuns.forEach((r, i) => { r.overall = i + 1; });
     maxElo = Math.max(1, ...players.map(p => p.Elo));
+    maxRaw = Math.max(1, byRaw[0]?.RawPoints || 0);
   }
 
   $("#updated").textContent = "updated " + new Date(D.generated + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -830,7 +840,7 @@ var NinjaScore = (() => {
 
   // State
   const PAGE = 100;   // Rows per page in long tables; "Show more" adds another page
-  const state = { q: "", unranked: true, shown: PAGE, levels: new Set(), missing: null, calc: { track: null, trackText: "", faults: "", time: "" } };
+  const state = { q: "", unranked: true, raw: false, shown: PAGE, levels: new Set(), missing: null, calc: { track: null, trackText: "", faults: "", time: "" } };
   const prefs = { unranked: true, missing: true, settings: true };   // Show unranked players, missing tracks on player pages, the scoring column (wide screens)
   try { const s = JSON.parse(localStorage.getItem("np-prefs") || "{}"); for (const k in prefs) if (typeof s[k] === "boolean") prefs[k] = s[k]; } catch (e) {}
   state.unranked = prefs.unranked;
@@ -843,32 +853,48 @@ var NinjaScore = (() => {
 
   // Views
   function viewPlayers() {
-    const all = players.filter(p => (state.unranked || p.Ranked) && match(p.Player));
+    // Two orders: Elo (skill, best runs first with decay) or raw points (every run added up, no minimum runs)
+    const raw = state.raw;
+    const all = raw ? byRaw.filter(p => match(p.Player)) : players.filter(p => (state.unranked || p.Ranked) && match(p.Player));
     const list = all.slice(0, state.shown);
-    const top3 = !state.q ? players.filter(p => p.Ranked).slice(0, 3) : [];
-    const body = list.map(p => `
-      <tr class="${rankClass(p.Rank)}${p.Ranked ? "" : " dim"}">
-        <td class="pos${p.Ranked ? posClass(p.Place) : ""}">${p.Ranked ? p.Place : "&ndash;"}</td>
+    const top3 = state.q ? [] : raw ? byRaw.slice(0, 3) : players.filter(p => p.Ranked).slice(0, 3);
+    const body = list.map(p => {
+      const placed = raw || p.Ranked, place = raw ? p.RawPlace : p.Place;
+      const meter = raw
+        ? `<div class="elo ${rankClass(p.Rank)}"><span class="meter"><i style="width:${(p.RawPoints / maxRaw * 100).toFixed(1)}%"></i></span><b>${fmtRaw(p.RawPoints)}</b></div>`
+        : `<div class="elo ${rankClass(p.Rank)}"><span class="meter"><i style="width:${(p.Elo / maxElo * 100).toFixed(1)}%"></i></span><b>${fmtInt(p.Elo)}</b></div>`;
+      return `
+      <tr class="${rankClass(p.Rank)}${placed ? "" : " dim"}">
+        <td class="pos${placed ? posClass(place) : ""}">${placed ? place : "&ndash;"}</td>
         <td class="name">${pLink(p)}${p.Ranked ? "" : '<span class="prov">unranked</span>'}</td>
         <td>${rankChip(p.Rank)}</td>
-        <td class="num"><div class="elo ${rankClass(p.Rank)}"><span class="meter"><i style="width:${(p.Elo / maxElo * 100).toFixed(1)}%"></i></span><b>${fmtInt(p.Elo)}</b></div></td>
+        <td class="num">${meter}</td>
+        <td class="num hide-sm">${raw ? fmtInt(p.Elo) : fmtRaw(p.RawPoints)}</td>
         <td class="num hide-sm">${p.Level.toFixed(2)}</td>
         <td class="num hide-sm">${p.Runs}</td>
-      </tr>`).join("");
+      </tr>`;
+    }).join("");
+    const main = raw ? "Raw points" : "Elo", other = raw ? "Elo" : "Raw points";
     return `
       <div class="head">
-        <div><h2>Player Elo</h2><p>${ranked} ranked, ${players.length - ranked} unranked</p></div>
-        <div class="toggles"><button class="chipbtn" id="tg-unranked" aria-pressed="${state.unranked}">Show unranked</button></div>
+        <div><h2>${raw ? "Raw points" : "Player Elo"}</h2><p>${raw ? `Every run added up, no minimum runs: ${fmtInt(byRaw.length)} players` : `${ranked} ranked, ${players.length - ranked} unranked`}</p></div>
+        <div class="toggles">
+          <button class="chipbtn" id="tg-raw" aria-pressed="${raw}">Sort by raw points</button>
+          ${raw ? "" : `<button class="chipbtn" id="tg-unranked" aria-pressed="${state.unranked}">Show unranked</button>`}
+        </div>
       </div>
-      ${top3.length ? `<div class="podium">${top3.map((p, i) => `
+      ${top3.length ? `<div class="podium">${top3.map((p, i) => {
+        const v = raw ? Math.round(p.RawPoints) : p.Elo;
+        return `
         <a class="pod p${i + 1}" href="#${p.slug}">
           <span class="pos">${ord(i + 1)}</span>
           <span class="nm">${esc(p.Player)}</span>
-          <span class="el"><span class="ct" data-count="${p.Elo}" style="min-width:${fmtInt(p.Elo).length}ch">${fmtInt(p.Elo)}</span><small>Elo</small></span>
-        </a>`).join("")}</div>` : ""}
+          <span class="el"><span class="ct" data-count="${v}" style="min-width:${fmtInt(v).length}ch">${fmtInt(v)}</span><small>${raw ? "raw points" : "Elo"}</small></span>
+        </a>`;
+      }).join("")}</div>` : ""}
       <div class="card"><div class="scroll"><table>
-        <thead><tr><th>#</th><th>Player</th><th>Rank</th><th class="num">Elo</th><th class="num hide-sm">Level</th><th class="num hide-sm">Runs</th></tr></thead>
-        <tbody>${body || `<tr><td colspan="6" class="empty">No players match &ldquo;${esc(state.q)}&rdquo;.</td></tr>`}</tbody>
+        <thead><tr><th>#</th><th>Player</th><th>Rank</th><th class="num">${main}</th><th class="num hide-sm">${other}</th><th class="num hide-sm">Level</th><th class="num hide-sm">Runs</th></tr></thead>
+        <tbody>${body || `<tr><td colspan="7" class="empty">No players match &ldquo;${esc(state.q)}&rdquo;.</td></tr>`}</tbody>
       </table></div>
       ${moreRow(all.length - list.length)}
       </div>`;
@@ -990,8 +1016,8 @@ var NinjaScore = (() => {
     const r = scoreRun(t.ti, f, tm), points = Math.round(r.points);
     const trackPlace = t.runs.filter(x => x.Faults < f || (x.Faults === f && x.Time < tm)).length + 1;
     const overall = allRuns.filter(x => x.score > r.points).length + 1;
-    const fadeAt = S.zero_fault_taper * r.medianFaults;
-    const bonusText = f === 0 ? `full bonus` : r.bonus > 0 ? `${Math.round(r.bonus / r.fullBonus * 100)}% kept, gone at ${tidy(fadeAt).toFixed(1)}f` : `none past ${tidy(fadeAt).toFixed(1)}f`;
+    const fadeAt = S.low_fault_reach * r.medianFaults;
+    const bonusText = f === 0 ? `full bonus` : r.bonus > 0 ? `${Math.round(r.bonus / r.fullBonus * 100)}% kept (1f keeps ${tidy(S.low_fault_share * 100)}%), gone at ${tidy(fadeAt).toFixed(1)}f` : `none from ${tidy(fadeAt).toFixed(1)}f`;
     const line = (k, v, note) => `<div class="calc-line"><span>${k}</span><b>${v}</b>${note ? `<small>${note}</small>` : ""}</div>`;
     return `
       <div class="calc-top">
@@ -1002,12 +1028,13 @@ var NinjaScore = (() => {
         </div>
       </div>
       <div class="calc-lines">
-        ${line("Track rating", r.rating.toFixed(2), t.VoteCount ? `median of ${t.VoteCount} votes` : "no votes yet, flat level")}
+        ${line("Track rating", r.rating.toFixed(2), (t.VoteCount ? `median of ${t.VoteCount} votes` : "no votes yet, flat level") + (r.scoredRating !== r.rating ? `; scored as ${r.scoredRating.toFixed(3)} (level 9 and up count ${tidy(S.top_rating_spread * 100)}% of the decimals)` : ""))}
         ${line("0f bonus", `${fmtSigned(r.bonus, 2)} levels`, `${bonusText} (up to ${r.fullBonus.toFixed(2)})`)}
         ${line("Time", `${fmtSigned(r.timeShift, 3)} levels`, `${fmtTime(Math.round(tm))} against a median of ${fmtTime(Math.round(r.medianTime))}`)}
         ${line("Scored at", `level ${r.level.toFixed(2)}`, `a median pass there is worth ${fmtInt(Math.round(r.worth))}`)}
         ${line("Faults", `×${r.mult.toFixed(3)}`, `${tidy(f)}f against a median of ${r.medianFaults.toFixed(1)}; most faults can move it is ±${tidy(r.cap * 100)}%`)}
         ${line("Points", fmtInt(points), `${fmtInt(Math.round(r.worth))} × ${r.mult.toFixed(3)}`)}
+        ${line("Raw points", fmtRaw(r.raw), `${tidy(S.raw_points_step)}× per level from ${tidy(S.raw_points_at_level_1)} at level 1, × ${r.mult.toFixed(3)} for faults`)}
       </div>`;
   }
 
@@ -1050,6 +1077,7 @@ var NinjaScore = (() => {
           <div class="fact"><small>Elo</small><b data-count="${p.Elo}">${fmtInt(p.Elo)}</b></div>
           <div class="fact"><small>Rank</small><b class="txt">${rankChip(p.Rank)}</b></div>
           <div class="fact"><small>Level</small><b>${p.Level.toFixed(2)}</b></div>
+          <div class="fact"><small>Raw points</small><b>${fmtRaw(p.RawPoints)}</b></div>
           <div class="fact"><small>Runs</small><b>${p.Runs}</b></div>
           <div class="fact"><small>Track records</small><b>${records}</b></div>
           <div class="fact"><small>0f runs</small><b>${flawless}</b></div>
@@ -1167,6 +1195,7 @@ var NinjaScore = (() => {
       return;
     }
     if (b.id === "tg-unranked") { state.unranked = !state.unranked; state.shown = PAGE; savePrefs(); render(); }
+    else if (b.id === "tg-raw") { state.raw = !state.raw; state.shown = PAGE; render(); $("#tg-raw")?.focus(); }
     else if (b.id === "tg-missing") { prefs.missing = !prefs.missing; state.missing = null; savePrefs(); render(); $("#tg-missing")?.focus(); }
     else if (b.id === "more") { state.shown += PAGE; render(); }
     else if (b.id === "all") { state.shown = Infinity; render(); }
@@ -1200,13 +1229,17 @@ var NinjaScore = (() => {
   const row = (key, i, label, o) => ({ label, ...o, get: src => src[key][i][1], set: v => { S[key][i][1] = v; } });   // One row of a table
   const capMax = Math.floor(99 * NinjaScore.interp(7, DEF.fault_cap) / Math.max(...DEF.fault_cap.map(r => r[1])));   // Keeps every level's cap under 100%
   const GROUPS = [
-    { title: "Points per level", hint: "A median pass, as a multiple of a median pass one level down. A median level 8 pass is pinned at 1,000 points, so each step moves the levels on the far side of 8 from it", rows:
-      DEF.level_steps.map(([l], i) => row("level_steps", i, `Level ${l + 1}`, { unit: "×", step: 0.1, min: 1.01, out: v => `${tidy(v)}× level ${l}`,
-        note: () => `A median level ${l + 1} pass is worth ${pts(l + 1)}${l + 1 === 10 ? `. Also sets tracks rated between 9 and 10: a 9.5 like Claymore is worth ${pts(9.5)}` : ""}` })) },
+    { title: "Points per level", hint: "A median pass, as a multiple of a median pass one level down. A median level 8 pass is pinned at 1,000 points, so each step moves the levels on the far side of 8 from it", rows: [
+      ...DEF.level_steps.map(([l], i) => row("level_steps", i, `Level ${l + 1}`, { unit: "×", step: 0.1, min: 1.01, out: v => `${tidy(v)}× level ${l}`,
+        note: () => `A median level ${l + 1} pass is worth ${pts(l + 1)}${l + 1 === 10 ? `. Also the yardstick for top players' Elo` : ""}` })),
+      scalar("top_rating_spread", "Level 9 decimals count", { unit: "%", pct: true, step: 5, min: 0, max: 100, out: v => `${tidy(v * 100)}% of a 9.x rating's decimals`,
+        note: () => { const s = S.top_rating_spread, w = NinjaScore.worthFn(S); return `From level 9 up, only this share of a rating's decimals counts: a 9.5 like Claymore scores as ${tidy(9 + 0.5 * s).toFixed(3)}, worth ${pts(9 + 0.5 * s)}, and each 0.1 adds ${((w(9 + 0.1 * s) / w(9) - 1) * 100).toFixed(0)}%`; } }) ] },
     { title: "0f runs", hint: "A 0f run counts as if its track were rated this many levels higher, by track level (straight lines in between)", rows: [
       ...DEF.zero_fault_bonus.map(([l], i) => row("zero_fault_bonus", i, `0f bonus, level ${l}`, { unit: "levels", step: 0.05, min: 0.01, out: v => `+${tidy(v)} levels` })),
-      scalar("zero_fault_taper", "Bonus fades by", { unit: "% med", pct: true, step: 1, min: 0.1, out: v => `${tidy(v * 100)}% of the track's median faults`,
-        note: () => { const t = S.zero_fault_taper * 60; return `Near-0f runs keep part of the bonus. It shrinks with each fault and is gone at this share of the track's median faults: on a 60f-median track, ${tidy(t / 2)}f keeps half and ${tidy(t)}f none`; } }) ] },
+      scalar("low_fault_share", "1f keeps", { unit: "% of 0f", pct: true, step: 5, min: 0, max: 100, out: v => `${tidy(v * 100)}% of the 0f bonus`,
+        note: () => `A 0f is special: 1f drops to this share of the bonus. Lower makes the cliff from 0f to 1f steeper` }),
+      scalar("low_fault_reach", "Low-fault bonus to", { unit: "% med", pct: true, step: 1, min: 0.1, out: v => `${tidy(v * 100)}% of the track's median faults`,
+        note: () => { const t = S.low_fault_reach * 100, k = tidy(S.low_fault_share * 100); return `The 1f share fades evenly to nothing at this share of the track's median faults: on a 100f-median track, 1f keeps ${tidy(k * (1 - 1 / t))}% of the 0f bonus, ${tidy(t / 2)}f ${tidy(k / 2)}% and ${tidy(t)}f none`; } }) ] },
     { title: "Faults", hint: "", rows: [
       scaled("fault_cap", 7, "Fault effect", { unit: "±%", pct: true, step: 1, min: 0, max: capMax, out: v => `±${tidy(v * 100)}% at level 7`,
         note: () => `Most faults can add or take away, as a share of a run's points. Shown at level 7; level 1 gets ±${tidy(S.fault_cap[0][1] * 100)}%, level 9 ±${tidy(NinjaScore.interp(9, S.fault_cap) * 100)}%` }),
@@ -1218,6 +1251,10 @@ var NinjaScore = (() => {
         note: () => { const d = S.run_decay; return `Of the run above it: the 2nd best counts ${tidy(d * 100)}%, the 5th ${tidy(d ** 4 * 100).toFixed(0)}%, the 10th ${tidy(d ** 9 * 100).toFixed(0)}%`; } }),
       scalar("max_counted_runs", "Runs counted", { unit: "0 = all", int: true, step: 1, min: 0, out: v => v ? `best ${v}` : "all" }),
       scalar("min_runs", "Runs to be ranked", { unit: "runs", int: true, step: 1, min: 1, out: v => `${v} runs` }) ] },
+    { title: "Raw points", hint: "A second score: every run added up, no decay and no minimum runs, on a flatter curve so playing more tracks keeps counting", rows: [
+      scalar("raw_points_step", "Each level", { unit: "×", step: 0.1, min: 1.01, out: v => `${tidy(v)}× the level below`,
+        note: () => { const s = S.raw_points_step, b = S.raw_points_at_level_1, f = l => +(b * s ** (l - 1)).toPrecision(3);
+          return `A median pass is worth ${f(1)} at level 1, ${f(5)} at level 5, ${f(8)} at level 8 and ${f(10)} at level 10`; } }) ] },
   ];
   const FIELDS = GROUPS.flatMap(g => g.rows);
   FIELDS.forEach((f, i) => { f.id = "set-" + i; });
@@ -1310,9 +1347,10 @@ var NinjaScore = (() => {
       lines.push("");
     });
     lines.push("Median pass worth",
-      `  Level 1 ${pts(1)}, level 4 ${pts(4)}, level 7 ${pts(7)}, level 8 ${pts(8)}, level 9 ${pts(9)}, a 9.5 ${pts(9.5)}, level 10 ${pts(10)}`, "",
+      `  Level 1 ${pts(1)}, level 4 ${pts(4)}, level 7 ${pts(7)}, level 8 ${pts(8)}, level 9 ${pts(9)}, a 9.5 ${pts(9 + 0.5 * S.top_rating_spread)}, level 10 ${pts(10)}`, "",
       "Fixed (not in the panel)",
       `  Fault median prior: ${tidy(DEF.fault_median_prior_runs)} runs`,
+      `  Raw points at level 1: ${tidy(DEF.raw_points_at_level_1)}`,
       `  Time shift: up to ${tidy(DEF.time_shift_max)} levels`);
     return lines.join("\n");
   };

@@ -35,11 +35,15 @@ def settings():
     # so its settings panel can change any of these live
     return {
         "level_steps": pc.LEVEL_STEPS,
+        "top_rating_spread": pc.TOP_RATING_SPREAD,
         "points_at_level_8": pc.POINTS_AT_LEVEL_8,
         "fault_cap": pc.FAULT_CAP,
         "fault_steepness": pc.FAULT_STEEPNESS,
         "zero_fault_bonus": pc.ZERO_FAULT_BONUS,
-        "zero_fault_taper": pc.ZERO_FAULT_TAPER,
+        "low_fault_share": pc.LOW_FAULT_SHARE,
+        "low_fault_reach": pc.LOW_FAULT_REACH,
+        "raw_points_step": pc.RAW_POINTS_STEP,
+        "raw_points_at_level_1": pc.RAW_POINTS_AT_LEVEL_1,
         "fault_median_prior_runs": pc.FAULT_MEDIAN_PRIOR_RUNS,
         "time_shift_max": pc.TIME_SHIFT_MAX,
         "run_decay": pc.RUN_DECAY,

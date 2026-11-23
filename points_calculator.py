@@ -56,9 +56,16 @@ LEVEL_STEPS = [
     (5,    5),
     (6,    5),
     (7,    6),                     # A median level 8 pass is worth 6 median level 7 passes
-    (8,    8),                     # A median level 9 pass is worth 8 median level 8 passes
-    (9,    10),                    # A median level 10 pass is worth 10 median level 9 passes
+    (8,    7),                     # A median level 9 pass is worth 7 median level 8 passes
+    (9,    8),                     # A median level 10 pass is worth 8 median level 9 passes. Also the yardstick that turns top players' scores into Elo
 ]
+TOP_RATING_SPREAD = 0.55           # From level 9 up, a track's rating counts this share of its distance above its whole level (a 9.5 scores as 9.275):
+                                   # +12% per 0.1 inside level 9 instead of +23%, without moving the Elo yardstick above
+
+# Raw points: a second, flatter score that adds up every run with no decay, for who has scored the most from playing the game.
+# Each level is worth RAW_POINTS_STEP times the one below, so playing many tracks, old and easy ones included, keeps adding up
+RAW_POINTS_STEP = 1.5              # A median pass is worth 1.5x a median pass one level down (level 1 = 1, level 2 = 1.5, level 10 = 38)
+RAW_POINTS_AT_LEVEL_1 = 1.0        # A median level 1 pass is worth this many raw points
 
 
 # FAULT & TIME SCALING
@@ -67,8 +74,9 @@ LEVEL_STEPS = [
 Faults move a run's points by a percentage, soft-capped by track rating: low-fault runs are partly luck, more so on harder, less consistent tracks.
   points = track worth x (1 + cap x tanh(FAULT_STEEPNESS x ln(median faults / faults)))
 A median run gets exactly the track's worth; half or double the median move it the same amount either way; nothing passes +-cap.
-Flawless runs are the exception: a 0f run is also scored as if its track were rated ZERO_FAULT_BONUS levels higher. That bonus
-fades out by ZERO_FAULT_TAPER of the track's median faults (on a 100-fault track: 1f keeps 4/5, 2f 3/5 ... 5f none) so near-0f runs don't fall off a cliff.
+Flawless runs are the exception: a 0f run is also scored as if its track were rated ZERO_FAULT_BONUS levels higher.
+A 0f is special, so 1f drops to LOW_FAULT_SHARE of that bonus (the cliff), which then fades evenly to nothing by LOW_FAULT_REACH of the
+track's median faults (on a 100-fault track: 1f keeps 70% x 9/10 of the bonus, 5f 70% x 1/2, 10f none).
 '''
 
 FAULT_CAP = [                      # (track rating, most faults can add or remove, as a share of the run's points); +5% per level down, flat at 10% from level 9 up
@@ -83,11 +91,15 @@ FAULT_CAP = [                      # (track rating, most faults can add or remov
     (9,    0.10),                  # The hardest tracks: low faults are mostly luck
 ]
 FAULT_STEEPNESS = 1.3              # How fast the cap is approached: higher spreads runs near the median further apart
-ZERO_FAULT_BONUS = [               # Levels added to a 0f run, by track rating: rises evenly from 1.1 at level 1 to 1.3 at level 10 (+0.0022 per 0.1)
-    (1,    1.10),
-    (10,   1.30),
+ZERO_FAULT_BONUS = [               # Levels added to a 0f run, by track rating (straight lines in between)
+    (5,    2.05),                  # Flat below level 5: low-level 0fs are common, so a bigger bonus there mostly lifts mid-table players
+    (6,    1.85),                  # A level 6 0f scores like a median level 8 pass
+    (7,    1.65),                  # Puts the L7 0fs with the top L8 passes
+    (8,    1.15),                  # Smallest from level 8 up, since points already climb steeply there; puts the L8 0fs (Vicious, King Pin 3)
+    (10,   1.15),                  # just under the best level 9 passes
 ]
-ZERO_FAULT_TAPER = 0.05            # The 0f bonus fades to nothing by this share of the track's median faults (5f on a 100-fault track, 2.5f on a 50)
+LOW_FAULT_SHARE = 0.7              # A 1f run keeps this share of the 0f bonus: the drop from 0f to 1f is the 0f cliff
+LOW_FAULT_REACH = 0.10             # ...and that share fades evenly to nothing by this share of the track's median faults (10f on a 100-fault track)
 FAULT_MEDIAN_PRIOR_RUNS = 5        # Track fault medians are pulled toward the level median as if it were 5 extra runs
 
 # Time shift, in levels: TIME_SHIFT_MAX times how much faster than the track median the run was (half the median time = +0.005); slower runs lose the same way
@@ -114,6 +126,8 @@ EXTRA_CP_PATTERN = r"(?i)\+|50\s*cps"
 EXPORT_PATH = "data/ninja_runs.csv"           # Game export: every ninja level, each player's best run per track, keyed by user and track id
 CURATED_PATH = "data/runs_curated.csv"        # Hand-collected level 7-9 passes; the tracks it lists keep the level it gives them
 TRACK_LEVELS_PATH = "data/track_levels.csv"   # Hand-set ninja levels (Track, Level) for export tracks the game files under the wrong level
+EXCLUDED_PATH = "data/excluded_runs.csv"      # Junk runs to drop (Player, Track, Level, Faults, Time in ms, Reason): bug passes with impossible times
+CURATED_LEVEL_REACH = 1                       # The curated file re-levels an export track only if their levels are this close (same name, same track)
 CLAN_TAG_PATTERN = r"^\[[^\]]*\]\s*"          # "[QK] RandallQK" in the curated file is "RandallQK" in the export
 CURATED_RENAMES = {                           # Curated names that are a different account name in the export
     "del230330031001": "del2303300310017591714",   # Deleted accounts are shown truncated in the curated file
@@ -146,21 +160,34 @@ def load_export(path=EXPORT_PATH):
     )
 
 
+def load_excluded(path=EXCLUDED_PATH):
+    # Exact runs to drop, matched on every field so a later real run by the same player on the same track still counts
+    schema = {k: RUNS_SCHEMA[k] for k in ["Player", "Track", "Level", "Faults", "Time"]}
+    if not os.path.exists(path):
+        return pl.DataFrame(schema=schema)
+    return pl.read_csv(path, schema_overrides=schema).select(list(schema))
+
+
 def load_runs(export_path=EXPORT_PATH, curated_path=CURATED_PATH):
     # Runs from both files, one per player per track: their best (fewest faults, then fastest), since the export holds newer PBs and the
-    # curated file passes the export lacks. A track the curated file lists takes its level there (the export files some a level off)
+    # curated file passes the export lacks. A track the curated file lists takes its level there (the export files some a level off, like
+    # Sinister), but only when the two are within CURATED_LEVEL_REACH: further apart, it's a different track with the same name
+    # (the export's level 2 Halcyon is not the curated level 7 one).
+    # Junk runs listed in EXCLUDED_PATH are dropped before picking the best, so a player's other run on that track can stand in
     export = load_export(export_path)
     curated = pl.read_csv(curated_path, schema=RUNS_SCHEMA).with_columns(
         pl.col("Player").str.replace(CLAN_TAG_PATTERN, "").replace(CURATED_RENAMES)
     )
     curated_levels = curated.select("Track", pl.col("Level").alias("CuratedLevel")).unique()
+    same_track = (pl.col("CuratedLevel") - pl.col("Level")).abs() <= CURATED_LEVEL_REACH
     runs = (
         pl.concat([
             export.join(curated_levels, on="Track", how="left")
-            .with_columns(pl.coalesce("CuratedLevel", "Level").alias("Level"))
+            .with_columns(pl.when(same_track).then("CuratedLevel").otherwise("Level").alias("Level"))
             .drop("CuratedLevel"),
             curated,
         ])
+        .join(load_excluded(), on=["Player", "Track", "Level", "Faults", "Time"], how="anti")
         .sort("Faults", "Time")
         .unique(["Player", "Track", "Level"], keep="first", maintain_order=True)
     )
@@ -296,9 +323,11 @@ def fault_multiplier(faults, median_faults, track_rating):
 
 
 def zero_fault_shift(faults, median_faults, track_rating):
-    # Levels added for a flawless run, fading to 0 by ZERO_FAULT_TAPER of the track's median faults
+    # Levels added for a flawless run: the full bonus at 0f, then a cliff to LOW_FAULT_SHARE of it that fades to 0 by LOW_FAULT_REACH of the median
     bonus = interpolate(min(max(track_rating, ZERO_FAULT_BONUS[0][0]), ZERO_FAULT_BONUS[-1][0]), ZERO_FAULT_BONUS)
-    return max(0.0, 1 - faults / (ZERO_FAULT_TAPER * median_faults)) * bonus
+    if faults == 0:
+        return bonus
+    return LOW_FAULT_SHARE * max(0.0, 1 - faults / (LOW_FAULT_REACH * median_faults)) * bonus
 
 
 def time_scaler(time, median_time):
@@ -306,9 +335,17 @@ def time_scaler(time, median_time):
     return TIME_SHIFT_MAX * max(-1.0, (median_time - time) / median_time)
 
 
+def scored_rating(track_rating):
+    # The rating a run is scored at: from level 9 up, the part above the whole level counts TOP_RATING_SPREAD of itself
+    if track_rating < 9:
+        return track_rating
+    whole = math.floor(track_rating)
+    return whole + (track_rating - whole) * TOP_RATING_SPREAD
+
+
 def run_level(track_rating, faults, median_faults, time, median_time):
-    # The level a run is scored at: the track's rating, nudged by time and raised for near-flawless runs. Other faults act on points instead
-    return track_rating + zero_fault_shift(faults, median_faults, track_rating) + time_scaler(time, median_time)
+    # The level a run is scored at: the track's (scored) rating, nudged by time and raised for near-flawless runs. Other faults act on points instead
+    return scored_rating(track_rating) + zero_fault_shift(faults, median_faults, track_rating) + time_scaler(time, median_time)
 
 
 def run_score(track_rating, faults, median_faults, time, median_time):
@@ -316,8 +353,14 @@ def run_score(track_rating, faults, median_faults, time, median_time):
     return level_scaler(run_level(track_rating, faults, median_faults, time, median_time)) * fault_multiplier(faults, median_faults, track_rating)
 
 
+def raw_points(track_rating, faults, median_faults, time, median_time):
+    # Raw points for one run: the same run level and fault scaling, on the flatter RAW_POINTS_STEP curve
+    level = run_level(track_rating, faults, median_faults, time, median_time)
+    return RAW_POINTS_AT_LEVEL_1 * RAW_POINTS_STEP ** (level - 1) * fault_multiplier(faults, median_faults, track_rating)
+
+
 def add_run_scores(runs_df, votes_df=None):
-    # Scores every row in the runs dataframe, adding TrackRating, RunLevel and RunScore columns
+    # Scores every row in the runs dataframe, adding TrackRating, RunLevel, RunScore and RawPoints columns
     if votes_df is None:
         votes_df = track_votes()
 
@@ -337,6 +380,12 @@ def add_run_scores(runs_df, votes_df=None):
                 return_dtype=pl.Float64,
             )
             .alias("RunScore"),
+            pl.struct(["TrackRating", "Faults", "MedianFaults", "Time", "MedianTime"])
+            .map_elements(
+                lambda r: raw_points(r["TrackRating"], r["Faults"], r["MedianFaults"], r["Time"], r["MedianTime"]),
+                return_dtype=pl.Float64,
+            )
+            .alias("RawPoints"),
         )
     )
 
@@ -400,6 +449,7 @@ def player_scores(runs_df, votes_df=None):
             .filter((pl.col("RunRank") < MAX_COUNTED_RUNS) if MAX_COUNTED_RUNS else pl.lit(True))
             .sum()
             .alias("PlayerScore"),
+            pl.col("RawPoints").sum().alias("RawPoints"),   # Every run, no decay and no run limit
         )
         .with_columns(
             (pl.col("PlayerScore") / REFERENCE_WEIGHT)
