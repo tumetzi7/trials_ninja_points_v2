@@ -1,4 +1,19 @@
 <!doctype html>
+<!--
+  THE LEADERBOARD PAGE
+  ====================
+  This file is the design of the leaderboard page. build_site.py copies it to index.html and drops the packed data into the empty data slot near the bottom.
+  It has three parts, top to bottom:
+    1. The style  How everything looks: colours, layout, the rank badges and their animations. (Written in CSS.)
+    2. The HTML   The fixed skeleton: the header, the tab bar, the search box and an empty space where each page gets drawn.
+    3. Scripts    What the page does (written in JavaScript, the language web browsers run). Two scripts:
+                    - "scoring": a copy of points_calculator.py's scoring. When the page opens, it scores every run, Elo and rank itself.
+                      If the scoring is changed in the Python file, the same change has to be made here, or the page and the
+                      spreadsheets will disagree.
+                    - the main script: unpacks the data, then draws whichever tab you're on (players, top runs, tracks, a player,
+                      a track or the calculator) and redraws it when you click, search or switch tabs.
+  The page needs no server: it's a single file that works on its own.
+-->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -9,7 +24,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap">
 <style>
-/* Layout: a race-timing board. One narrow column, a sticky header with the view switch, dense ranked tables underneath. */
+/* The look: a race-timing board. One column, a header bar with the tabs that stays at the top as you scroll, and tight ranked tables.
+   The colours are set once here as named values (like --accent for the orange), with a second set below for dark mode */
 :root {
   --bg: #eef0f4;
   --surface: #ffffff;
@@ -113,6 +129,7 @@ button, input { font: inherit; color: inherit; }
 }
 .seg a:hover { color: var(--fg); }
 .seg a[aria-current="page"] { background: var(--fg); color: var(--bg); view-transition-name: seg-active; }
+.search-box { flex: 1 1 180px; min-width: 0; position: relative; }
 .search {
   flex: 1 1 180px; min-width: 0; display: flex; align-items: center; gap: 8px;
   background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px;
@@ -123,64 +140,71 @@ button, input { font: inherit; color: inherit; }
 
 main { padding-block: 18px 56px; min-width: 0; }
 
-/* Settings: a sticky column on the left; a drawer on narrow screens */
-.layout { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 0 28px; align-items: start; }
-.settings {
-  position: sticky; top: 74px; margin-block: 18px 56px; max-height: calc(100vh - 92px); overflow: auto; overscroll-behavior: contain;
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); display: flex; flex-direction: column;
+/* Search results */
+.q-pop {
+  position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; right: 0; max-height: min(70vh, 460px); overflow: auto; padding: 6px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 18px 40px -16px rgb(0 0 0 / .35);
 }
-.set-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 14px 16px 0; }
-.set-head h2 { margin: 0; font-family: var(--font-display); font-size: 22px; font-weight: 700; text-transform: uppercase; letter-spacing: .01em; }
-.set-note { margin: 4px 16px 12px; color: var(--muted); font-size: 13px; }
-.set-note b { color: var(--accent); font-weight: 600; }
-.set-group { border-top: 1px solid var(--line); }
-.set-group h3 {
-  margin: 0; padding: 12px 16px 6px; display: flex; align-items: center; gap: 8px;
-  font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+.qp-h { padding: 8px 10px 4px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.q-pop a { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 7px 10px; border-radius: 8px; text-decoration: none; color: var(--fg); font-weight: 600; font-size: 14px; }
+.q-pop a span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.q-pop a small { flex: none; color: var(--muted); font-weight: 500; font-size: 12px; font-family: var(--font-data); }
+.q-pop a:hover, .q-pop a:focus { background: var(--accent-soft); outline: none; }
+.q-pop a:hover small, .q-pop a:focus small { color: var(--accent); }
+.qp-none { padding: 10px; color: var(--muted); font-size: 14px; }
+
+/* Charts. The level chart's three parts are one hue, lighter to darker as runs get cleaner */
+:root { --c0: #eab676; --c1: #d9822b; --c2: #9a4d00; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --c0: #8a5a1e; --c1: #c98124; --c2: #ffb84d; } }
+:root[data-theme="dark"] { --c0: #8a5a1e; --c1: #c98124; --c2: #ffb84d; }
+.chart { padding: 14px 16px 12px; margin-bottom: 14px; }
+.chart-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; margin-bottom: 12px; }
+.chart-head h3 { margin: 0; font-family: var(--font-display); font-size: 18px; font-weight: 700; text-transform: uppercase; letter-spacing: .01em; }
+.chart-head > span { color: var(--muted); font-size: 13px; }
+.hist { display: grid; align-items: stretch; gap: 2px; height: 160px; border-bottom: 1px solid var(--line); }
+.hb { display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch; min-width: 0; cursor: default; outline: none; padding-top: 18px; }
+.hb b { display: block; margin-bottom: 3px; text-align: center; font-family: var(--font-data); font-size: 10.5px; font-weight: 500; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.hb:hover b, .hb:focus-visible b { color: var(--fg); }
+.hb i { display: block; width: 100%; min-height: 1px; max-height: calc(100% - 18px); background: var(--rc, var(--accent)); border-radius: 4px 4px 0 0; transform-origin: bottom; }
+.hb:hover i, .hb:focus-visible i { background: color-mix(in srgb, var(--rc, var(--accent)) 75%, var(--fg)); }
+.enter .hb i { animation: rise .7s cubic-bezier(.2,.7,.2,1) backwards; }
+@keyframes rise { from { transform: scaleY(0); } }
+.hist-r { display: grid; gap: 2px; margin-top: 2px; }
+.hb.r-Divine i { background: linear-gradient(180deg, #ffd76a, #ff2e63); }
+@media (max-width: 640px) { .hb b { display: none; } .hb { padding-top: 0; } .hb i { max-height: 100%; } }
+.hist-r span {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; padding-top: 4px;
+  font-size: 11px; font-weight: 600; color: var(--muted);
 }
-.set-group h3 .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
-.set-hint { margin: -2px 16px 8px; font-size: 12px; color: var(--muted); }
-.set-body { padding-bottom: 12px; display: grid; gap: 8px; }
-.set-row { display: grid; grid-template-columns: minmax(0, 1fr) 80px 84px; align-items: center; gap: 8px; padding: 3px 16px; font-size: 13px; }
-.set-sub { grid-column: 1 / -1; color: var(--muted); font-size: 12px; line-height: 1.35; }
-.set-row label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.set-row.changed label { color: var(--accent); font-weight: 600; }
-.set-row input {
-  width: 100%; text-align: right; font-family: var(--font-data); font-size: 13px; padding: 4px 6px;
-  border: 1px solid var(--line); border-radius: 6px; background: var(--surface-2);
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.sw.c0, .lvc-bar .c0 { background: var(--c0); } .sw.c1, .lvc-bar .c1 { background: var(--c1); } .sw.c2, .lvc-bar .c2 { background: var(--c2); }
+.lvc { display: grid; gap: 8px; }
+.lvc-row { display: grid; grid-template-columns: 64px minmax(0, 1fr) 46px; align-items: center; gap: 10px; }
+.lvc-l { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.lvc-track { display: block; min-width: 0; }
+.lvc-bar { display: flex; gap: 2px; height: 16px; min-width: 4px; transform-origin: left; }
+.lvc-bar i { display: block; min-width: 3px; outline: none; }
+.lvc-bar i:first-child { border-radius: 4px 0 0 4px; } .lvc-bar i:last-child { border-radius: 0 4px 4px 0; } .lvc-bar i:only-child { border-radius: 4px; }
+.lvc-bar i:hover, .lvc-bar i:focus-visible { filter: brightness(1.12); box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--fg); }
+.enter .lvc-bar { animation: grow .8s cubic-bezier(.2,.7,.2,1) .1s backwards; }
+.lvc-v { font-family: var(--font-data); font-weight: 600; font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; }
+.tip {
+  position: fixed; z-index: 40; pointer-events: none; max-width: 280px; padding: 6px 10px; border-radius: 8px; font-size: 12.5px; font-weight: 600;
+  background: var(--fg); color: var(--bg); box-shadow: 0 8px 24px -8px rgb(0 0 0 / .4);
 }
-.set-row input:focus { outline: none; border-color: var(--accent); }
-.set-row input.bad { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 10%, var(--surface-2)); }
-.set-unit { color: var(--muted); font-size: 12px; font-family: var(--font-data); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.set-foot { position: sticky; bottom: 0; margin-top: auto; display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); background: var(--surface); }
-.set-foot .btn { flex: 1; padding: 7px 10px; font-size: 13px; }
-.set-toggle { display: inline-flex; }
-.set-close { display: none; }
-.set-toggle, .set-close {
-  align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); border-radius: 999px;
-  padding: 6px 12px; font-weight: 600; font-size: 14px; cursor: pointer;
-}
-.set-toggle:hover, .set-close:hover { border-color: var(--accent); color: var(--accent); }
-.set-toggle .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
-.scrim { position: fixed; inset: 0; z-index: 25; background: rgb(0 0 0 / .4); }
-.export {
-  width: min(620px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 0; color: var(--fg);
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 24px 60px -20px rgb(0 0 0 / .5);
-}
-.export[open] { display: flex; flex-direction: column; }
-.export::backdrop { background: rgb(0 0 0 / .45); }
-.export-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 16px 0; }
-.export-head h2 { margin: 0; font-family: var(--font-display); font-size: 22px; font-weight: 700; text-transform: uppercase; }
-.export-head .btn, .export-foot .btn { padding: 7px 14px; font-size: 13px; }
-.export .set-note { margin: 6px 16px 10px; }
-.export code { font-family: var(--font-data); font-size: 12px; }
-.export textarea {
-  margin: 0 16px; min-height: 300px; flex: 1; resize: vertical; padding: 12px; border: 1px solid var(--line); border-radius: 8px;
-  background: var(--surface-2); color: var(--fg); font: 12.5px/1.5 var(--font-data); white-space: pre; overflow: auto;
-}
-.export textarea:focus { outline: none; border-color: var(--accent); }
-.export-foot { display: flex; gap: 8px; justify-content: flex-end; padding: 12px 16px 16px; }
-.custom-tag { color: var(--accent); font-weight: 600; }
+.hero .chart { margin-bottom: 0; }
+
+/* Player page tools and level progress */
+.p-tools { margin-bottom: 12px; }
+.progress { display: grid; gap: 10px; margin-bottom: 14px; }
+.lv-none { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.lv-none > span { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-right: 4px; }
+.lv-none .chipbtn[aria-expanded="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.lv-of { font-family: var(--font-data); font-weight: 500; opacity: .75; }
+.board-seg a { padding: 4px 12px; font-size: 13px; }
+.board-seg a[aria-current="page"] { view-transition-name: none; }
 
 /* Points calculator */
 .calc { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 14px; align-items: start; }
@@ -208,21 +232,6 @@ main { padding-block: 18px 56px; min-width: 0; }
 .calc-line b { font-family: var(--font-data); font-weight: 600; font-variant-numeric: tabular-nums; }
 .calc-line small { grid-column: 2; color: var(--muted); font-size: 12px; }
 @media (max-width: 760px) { .calc { grid-template-columns: minmax(0, 1fr); } .calc-place { text-align: left; } }
-@media (max-width: 1080px) {
-  .layout { grid-template-columns: minmax(0, 1fr); }
-  .settings {
-    position: fixed; z-index: 30; inset: 0 auto 0 0; width: min(380px, 92vw); max-height: none; margin: 0; border-width: 0 1px 0 0; border-radius: 0;
-    transform: translateX(-105%); visibility: hidden; transition: transform .25s cubic-bezier(.2,.7,.2,1), visibility .25s;
-  }
-  .settings.open { transform: none; visibility: visible; box-shadow: 0 0 40px rgb(0 0 0 / .3); }
-  .set-close { display: inline-flex; }
-}
-@media (min-width: 1081px) {   /* Wide screens: the Scoring button hides the column and gives the board the full width */
-  .layout.set-hidden { grid-template-columns: minmax(0, 1fr); }
-  .layout.set-hidden .settings { display: none; }
-  .set-toggle[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); }
-}
-
 /* Section head */
 .head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; margin-bottom: 12px; }
 .head h2 { margin: 0; font-family: var(--font-display); font-size: 26px; font-weight: 700; text-transform: uppercase; letter-spacing: .01em; }
@@ -233,6 +242,10 @@ main { padding-block: 18px 56px; min-width: 0; }
   color: var(--muted); cursor: pointer;
 }
 .chipbtn:hover { color: var(--fg); }
+.lv-filter { margin: -4px 0 14px; }
+th .sort { font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; white-space: nowrap; }
+th .sort:hover, th .sort.on { color: var(--fg); }
+th .sort:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
 .chipbtn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 
 /* Podium */
@@ -284,6 +297,12 @@ tbody tr:hover td:first-child { box-shadow: inset 3px 0 0 var(--rc, var(--accent
 tr.rv { opacity: 0; }
 tr.rv.in { opacity: 1; animation: row-in .45s cubic-bezier(.2,.7,.2,1) var(--d, 0ms) backwards; }
 @keyframes row-in { from { opacity: 0; transform: translateY(10px); } }
+/* Column shares per table, so number columns sit evenly instead of bunching at the right. Hidden (narrow screen) columns drop out and the rest rescale */
+table.t-players th:nth-child(1) { width: 7%; } table.t-players th:nth-child(2) { width: 31%; } table.t-players th:nth-child(3) { width: 22%; } table.t-players th:nth-child(4) { width: 24%; } table.t-players th:nth-child(5) { width: 16%; }
+table.t-runs th:nth-child(1) { width: 7%; } table.t-runs th:nth-child(2) { width: 22%; } table.t-runs th:nth-child(3) { width: 33%; } table.t-runs th:nth-child(4) { width: 12%; } table.t-runs th:nth-child(5) { width: 14%; } table.t-runs th:nth-child(6) { width: 12%; }
+table.t-tracks th:nth-child(1) { width: 34%; } table.t-tracks th:nth-child(2) { width: 11%; } table.t-tracks th:nth-child(3) { width: 11%; } table.t-tracks th:nth-child(4) { width: 22%; } table.t-tracks th:nth-child(5) { width: 10%; } table.t-tracks th:nth-child(6) { width: 12%; }
+table.t-track th:nth-child(1) { width: 7%; } table.t-track th:nth-child(2) { width: 31%; } table.t-track th:nth-child(3) { width: 14%; } table.t-track th:nth-child(4) { width: 18%; } table.t-track th:nth-child(5) { width: 14%; } table.t-track th:nth-child(6) { width: 16%; }
+table.t-player th:nth-child(1) { width: 40%; } table.t-player th:nth-child(2) { width: 14%; } table.t-player th:nth-child(3) { width: 16%; } table.t-player th:nth-child(4) { width: 16%; } table.t-player th:nth-child(5) { width: 14%; }
 .num { text-align: right; font-family: var(--font-data); font-size: 14px; }
 th.num { font-family: var(--font-body); }
 .pos { width: 1%; font-family: var(--font-data); color: var(--muted); }
@@ -310,11 +329,11 @@ tr.in .meter i { animation: grow .8s cubic-bezier(.2,.7,.2,1) calc(var(--d, 0ms)
 }
 .rank::before { content: ""; width: 7px; height: 7px; border-radius: 2px; background: var(--rc); transform: rotate(45deg); }
 
-/* The climb to Divine: every rank keeps the tinted pill and adds one more thing.
-   Iron is plain. Bronze to Platinum get polished metal badges; from Silver an idle glint comes round, sooner and brighter each rank.
-   Diamond, Champ and Grand Champ take new badges (gem, shield, crown) and one, two, three twinkles.
-   Grand Champ gains a light running round its edge. Mythic has it all at speed: two lights on the ring, flowing gold lettering,
-   a spinning gem, four twinkles, a constant shine and a pulsing glow. Glints ripple down the table rather than firing together */
+/* Elo rank badges. Each badge is a coloured pill, and every rank up the ladder keeps what the one below has and adds one more thing.
+   Iron is plain. Bronze to Platinum get polished metal icons; from Silver up a glint of light sweeps across now and then, more often
+   and brighter each rank. Diamond, Champ and Grand Champ get a gem, a shield and a crown, and one, three and four little twinkles.
+   Grand Champ also gets a light running round its edge. Mythic has it all: a flickering flame, two lights on the ring, flowing gold
+   lettering, six twinkles, a constant shine and a pulsing glow. Down a table the glints are staggered, so they don't all flash at once */
 .rank { position: relative; overflow: hidden; isolation: isolate; --shine: rgb(255 255 255 / .55); --tw: var(--rc); --mt-a: #b8400a; --mt-b: #e09000; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .rank { --tw: color-mix(in srgb, var(--rc) 30%, #fff); --mt-a: #ffad33; --mt-b: #fff1c2; } }
 :root[data-theme="dark"] .rank { --tw: color-mix(in srgb, var(--rc) 30%, #fff); --mt-a: #ffad33; --mt-b: #fff1c2; }
@@ -343,10 +362,14 @@ tr.in .meter i { animation: grow .8s cubic-bezier(.2,.7,.2,1) calc(var(--d, 0ms)
   width: 12px; height: 9px; clip-path: polygon(0 22%, 26% 55%, 50% 0, 74% 55%, 100% 22%, 88% 100%, 12% 100%);
   background: linear-gradient(170deg, color-mix(in srgb, var(--rc) 35%, #fff) 0 40%, var(--rc) 60%, color-mix(in srgb, var(--rc) 70%, #000));
 }
-.rank.r-Mythic::before {
-  width: 9px; height: 9px;
-  background: linear-gradient(135deg, #fff2c2 0 20%, #ffb020 50%, #e2550a);
+.rank.r-Mythic::before {   /* A living flame: its colours climb and it flickers */
+  width: 10px; height: 12px; border-radius: 0; transform: none; transform-origin: 50% 100%;
+  clip-path: polygon(50% 0, 63% 24%, 77% 12%, 82% 40%, 97% 57%, 92% 82%, 72% 100%, 28% 100%, 8% 82%, 3% 57%, 18% 38%, 30% 50%, 34% 22%);
+  background: linear-gradient(0deg, #c23a06, #ff7a1a 30%, #ffb020 55%, #fff2c2 80%, #ffb020) 0 0 / 100% 200%;
+  animation: flame-rise 1.2s linear infinite, flicker 1.6s ease-in-out infinite;
 }
+@keyframes flame-rise { to { background-position: 0 -200%; } }
+@keyframes flicker { 0%, 100% { transform: scale(1, 1) skewX(0deg); } 25% { transform: scale(.94, 1.08) skewX(-4deg); } 50% { transform: scale(1.04, .95) skewX(3deg); } 75% { transform: scale(.97, 1.05) skewX(-2deg); } }
 
 /* Glints: sooner and brighter each rank */
 .rank:is(.r-Gold, .r-Platinum) { border-color: color-mix(in srgb, var(--rc) 50%, transparent); }
@@ -413,7 +436,7 @@ tbody tr:nth-child(5n) .rank:not(.r-Iron, .r-Bronze, .r-Divine)::after { animati
 @keyframes glint-mid { 0% { transform: translateX(-100%); } 22%, 100% { transform: translateX(100%); } }
 @keyframes mythic-glow { 50% { box-shadow: 0 0 12px 1px color-mix(in srgb, var(--rc) 55%, transparent); } }
 
-/* Divine, the top rank (build_site.py adds its colour once someone holds it): a night-sky jewel. Drifting stars inside,
+/* The top Elo rank (hidden until someone reaches it; build_site.py adds its colour): a night-sky jewel. Drifting stars inside,
    a gold and crimson ring running round it, a spinning star, flowing gold text and twinkles */
 :root { --stars-pill: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='24'%3E%3Ccircle cx='6' cy='5' r='0.7' fill='%23ffffff' fill-opacity='0.9'/%3E%3Ccircle cx='19' cy='17' r='0.5' fill='%23ffffff' fill-opacity='0.7'/%3E%3Ccircle cx='31' cy='7' r='0.8' fill='%23ffd76a' fill-opacity='1'/%3E%3Ccircle cx='44' cy='19' r='0.6' fill='%23ffffff' fill-opacity='0.8'/%3E%3Ccircle cx='53' cy='9' r='0.5' fill='%23ffb3c4' fill-opacity='0.9'/%3E%3Cpath d='M38 11.2L38.504 12.496L39.8 13L38.504 13.504L38 14.8L37.496 13.504L36.2 13L37.496 12.496Z' fill='%23ffffff'/%3E%3C/svg%3E"); }
 .rank.r-Divine {
@@ -473,6 +496,140 @@ tr.r-Divine .meter i { background: linear-gradient(90deg, #ffd76a, #ff2e63); }
 }
 .r-Iron { --rc: var(--r-iron); } .r-Bronze { --rc: var(--r-bronze); } .r-Silver { --rc: var(--r-silver); } .r-Gold { --rc: var(--r-gold); } .r-Platinum { --rc: var(--r-plat); }
 .r-Diamond { --rc: var(--r-diamond); } .r-Champ { --rc: var(--r-champ); } .r-Grand-Champ { --rc: var(--r-gc); } .r-Mythic { --rc: var(--r-mythic); }
+/* Gem ranks (total points): the Elo ladder's twin, most common to rarest. Each gem keeps the tinted pill and adds one more thing.
+   Quartz and Amber are plain (a shine on hover). Topaz to Amethyst get an idle glint, sooner each gem. Sapphire, Emerald and Ruby
+   add one, three and four twinkles; Ruby a light running round its edge. Pearl has it all: two lights on the ring, pearlescent
+   lettering, six twinkles, a constant shine and a glow. Obsidian is volcanic glass: drifting embers, a violet ring, flowing text */
+.r-Quartz { --rc: #7f8791; } .r-Amber { --rc: #b8650f; } .r-Topaz { --rc: #a88700; } .r-Aquamarine { --rc: #138fa3; } .r-Amethyst { --rc: #8a4fc8; } .r-Sapphire { --rc: #2457c5; } .r-Emerald { --rc: #0b8a53; } .r-Ruby { --rc: #c0123c; } .r-Pearl { --rc: #9b6f93; } .r-Obsidian { --rc: #5b3f8c; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .r-Quartz { --rc: #b4bac4; } :root:not([data-theme="light"]) .r-Amber { --rc: #f0a04b; } :root:not([data-theme="light"]) .r-Topaz { --rc: #f2d03b; } :root:not([data-theme="light"]) .r-Aquamarine { --rc: #5fd6e8; } :root:not([data-theme="light"]) .r-Amethyst { --rc: #b98cff; } :root:not([data-theme="light"]) .r-Sapphire { --rc: #6b96ff; } :root:not([data-theme="light"]) .r-Emerald { --rc: #34d78b; } :root:not([data-theme="light"]) .r-Ruby { --rc: #ff4d6d; } :root:not([data-theme="light"]) .r-Pearl { --rc: #f1dfea; } :root:not([data-theme="light"]) .r-Obsidian { --rc: #a78bfa; } }
+:root[data-theme="dark"] .r-Quartz { --rc: #b4bac4; } :root[data-theme="dark"] .r-Amber { --rc: #f0a04b; } :root[data-theme="dark"] .r-Topaz { --rc: #f2d03b; } :root[data-theme="dark"] .r-Aquamarine { --rc: #5fd6e8; } :root[data-theme="dark"] .r-Amethyst { --rc: #b98cff; } :root[data-theme="dark"] .r-Sapphire { --rc: #6b96ff; } :root[data-theme="dark"] .r-Emerald { --rc: #34d78b; } :root[data-theme="dark"] .r-Ruby { --rc: #ff4d6d; } :root[data-theme="dark"] .r-Pearl { --rc: #f1dfea; } :root[data-theme="dark"] .r-Obsidian { --rc: #a78bfa; }
+/* Gem badges: each one cut its own way */
+.rank.gem::before { border-radius: 0; transform: none; }
+.rank.r-Quartz::before {   /* A quartz cluster: three frosted crystals */
+  width: 12px; height: 12px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cdefs%3E%3ClinearGradient id='l' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23f4f7fb'/%3E%3Cstop offset='1' stop-color='%23cfd7e1'/%3E%3C/linearGradient%3E%3ClinearGradient id='m' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23ffffff'/%3E%3Cstop offset='.6' stop-color='%23eef2f7'/%3E%3Cstop offset='1' stop-color='%23dfe5ec'/%3E%3C/linearGradient%3E%3ClinearGradient id='r' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23c3ccd8'/%3E%3Cstop offset='1' stop-color='%238f9bab'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cg transform='rotate(-24 4 16)'%3E%3Cpolygon points='1.6,9 3.4,6.5 2.9,10 2.9,16 1.6,16' fill='url(%23l)'/%3E%3Cpolygon points='2.9,10 3.4,6.5 4.1,9.6 4.1,16 2.9,16' fill='url(%23m)'/%3E%3Cpolygon points='4.1,9.6 3.4,6.5 5.4,9 5.4,16 4.1,16' fill='url(%23r)'/%3E%3Cpolygon points='1.6,9 3.4,6.5 5.4,9 5.4,16 1.6,16' fill='none' stroke='%237d8898' stroke-width='.45' stroke-linejoin='round'/%3E%3C/g%3E%3Cg transform='rotate(22 12 16)'%3E%3Cpolygon points='10.6,10 12.3,7.5 11.8,11 11.8,16 10.6,16' fill='url(%23l)'/%3E%3Cpolygon points='11.8,11 12.3,7.5 13,10.6 13,16 11.8,16' fill='url(%23m)'/%3E%3Cpolygon points='13,10.6 12.3,7.5 14.2,10 14.2,16 13,16' fill='url(%23r)'/%3E%3Cpolygon points='10.6,10 12.3,7.5 14.2,10 14.2,16 10.6,16' fill='none' stroke='%237d8898' stroke-width='.45' stroke-linejoin='round'/%3E%3C/g%3E%3Cpolygon points='5.2,5 8.1,0.8 7.3,6 7.3,16 5.2,16' fill='url(%23l)'/%3E%3Cpolygon points='7.3,6 8.1,0.8 9.4,5.6 9.4,16 7.3,16' fill='url(%23m)'/%3E%3Cpolygon points='9.4,5.6 8.1,0.8 11,5 11,16 9.4,16' fill='url(%23r)'/%3E%3Cpolygon points='5.2,5 8.1,0.8 11,5 11,16 5.2,16' fill='none' stroke='%237d8898' stroke-width='.45' stroke-linejoin='round'/%3E%3Cline x1='6.4' y1='6.5' x2='6.4' y2='14' stroke='%23fff' stroke-width='.6' stroke-linecap='round' opacity='.9'/%3E%3C/svg%3E") center / contain no-repeat;
+  filter: drop-shadow(0 0 1px rgb(255 255 255 / .25));
+}
+.rank.r-Amber::before {   /* A drop of resin */
+  width: 8px; height: 10px; border-radius: 50% 50% 50% 50% / 62% 62% 40% 40%;
+  background: radial-gradient(circle at 35% 35%, #fff3c4 0 15%, #f0a04b 45%, #8a4206);
+}
+.rank.r-Topaz::before {   /* A brilliant cut */
+  width: 11px; height: 9px; clip-path: polygon(22% 0, 78% 0, 100% 34%, 50% 100%, 0 34%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--rc) 25%, #fff) 0 38%, var(--rc) 38% 66%, color-mix(in srgb, var(--rc) 70%, #000) 66%);
+}
+.rank.r-Aquamarine::before {   /* A long step cut */
+  width: 12px; height: 7px; clip-path: polygon(16% 0, 84% 0, 100% 32%, 100% 68%, 84% 100%, 16% 100%, 0 68%, 0 32%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--rc) 25%, #fff) 0 30%, var(--rc) 30% 70%, color-mix(in srgb, var(--rc) 70%, #000) 70%);
+}
+.rank.r-Amethyst::before {   /* A crystal cluster */
+  width: 12px; height: 10px; clip-path: polygon(0 100%, 14% 38%, 30% 62%, 50% 0, 70% 62%, 86% 38%, 100% 100%);
+  background: linear-gradient(170deg, color-mix(in srgb, var(--rc) 30%, #fff) 0 35%, var(--rc) 60%, color-mix(in srgb, var(--rc) 70%, #000));
+}
+.rank.r-Sapphire::before {   /* A round brilliant, catching light as it turns */
+  width: 10px; height: 10px; clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%);
+  background: conic-gradient(from var(--angle), color-mix(in srgb, var(--rc) 25%, #fff), var(--rc), color-mix(in srgb, var(--rc) 60%, #000), var(--rc), color-mix(in srgb, var(--rc) 25%, #fff));
+  animation: spin 4s linear infinite;
+}
+.rank.r-Emerald::before {   /* An emerald cut */
+  width: 8px; height: 11px; clip-path: polygon(25% 0, 75% 0, 100% 18%, 100% 82%, 75% 100%, 25% 100%, 0 82%, 0 18%);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--rc) 70%, #000) 0 20%, var(--rc) 20% 45%, color-mix(in srgb, var(--rc) 30%, #fff) 45% 60%, var(--rc) 60% 80%, color-mix(in srgb, var(--rc) 70%, #000) 80%);
+}
+.rank.r-Ruby::before {   /* A cushion-cut ruby, its facets flashing */
+  width: 11px; height: 10px; clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / .55) 0 22%, transparent 22%),
+    conic-gradient(from 30deg at 50% 50%, color-mix(in srgb, var(--rc) 35%, #fff), var(--rc), color-mix(in srgb, var(--rc) 55%, #000), var(--rc), color-mix(in srgb, var(--rc) 35%, #fff), var(--rc), color-mix(in srgb, var(--rc) 55%, #000), color-mix(in srgb, var(--rc) 35%, #fff));
+  animation: ruby-flash 2.2s ease-in-out infinite;
+}
+.rank.r-Pearl::before {   /* A pearl, its sheen sliding round */
+  width: 9px; height: 9px; border-radius: 50%;
+  background: radial-gradient(circle at 32% 30%, #fff 0 16%, transparent 34%), conic-gradient(from var(--angle), #f9d3e6, #fff6ea, #cfe9ff, #e6d6ff, #f9d3e6);
+  animation: spin 3s linear infinite;
+  box-shadow: 0 0 0 1px var(--pearl-edge), 0 0 5px rgb(255 255 255 / .5);
+}
+.rank.r-Obsidian::before { display: none; }   /* Its shard is an SVG (.obs-ic) so the glow isn't clipped */
+.rank.r-Obsidian .obs-ic { order: -1; width: 12px; height: 12px; flex: none; overflow: visible; animation: obs-pulse 2.4s ease-in-out infinite; }
+@keyframes obs-pulse { 0%, 100% { filter: drop-shadow(0 0 1.5px #a78bfa); } 50% { filter: drop-shadow(0 0 3.5px #c4a8ff) drop-shadow(0 0 1px #fff); } }
+
+/* Glints: sooner and brighter each gem */
+.rank:is(.r-Quartz, .r-Amber):hover::after, tbody tr:hover .rank:is(.r-Quartz, .r-Amber)::after, .fact:hover .rank:is(.r-Quartz, .r-Amber)::after { animation: shine .75s ease-out; }
+.rank:is(.r-Aquamarine, .r-Amethyst) { border-color: color-mix(in srgb, var(--rc) 50%, transparent); }
+.rank:is(.r-Sapphire, .r-Emerald) { border-color: color-mix(in srgb, var(--rc) 58%, transparent); }
+.rank.r-Topaz { --shine: rgb(255 250 210 / .45); }
+.rank.r-Topaz::after { animation: glint-slow 27s ease-in-out infinite; }
+.rank.r-Aquamarine { --shine: rgb(235 255 255 / .55); }
+.rank.r-Aquamarine::after { animation: glint-slow 21s ease-in-out infinite; }
+.rank.r-Amethyst { --shine: rgb(245 230 255 / .6); }
+.rank.r-Amethyst::after { animation: glint-slow 16.5s ease-in-out infinite; }
+.rank.r-Sapphire { --shine: rgb(230 240 255 / .65); }
+.rank.r-Sapphire::after { animation: glint-mid 13.5s ease-in-out infinite; }
+.rank.r-Emerald { --shine: rgb(230 255 240 / .7); }
+.rank.r-Emerald::after { animation: glint-mid 10s ease-in-out infinite; }
+.rank.r-Ruby { --shine: rgb(255 230 236 / .75); }
+.rank.r-Ruby::after { animation: glint-mid 9s ease-in-out infinite; }
+.rank.r-Emerald .tw, .rank.r-Ruby .tw { animation-duration: 1.9s; }
+
+/* Ruby and Pearl: the ring of light (shared with Grand Champ and Mythic) */
+.rank:is(.r-Ruby, .r-Pearl) { border: 0; padding: 3px 10px 3px 8px; background: color-mix(in srgb, var(--rc) 40%, transparent); }
+.rank.r-Pearl { --shine: rgb(255 255 255 / .6); --mt-a: #7a2a6a; --mt-b: #1d5f88; --pearl-edge: rgb(80 40 90 / .35); animation: mythic-glow 2.4s ease-in-out infinite; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .rank.r-Pearl { --mt-a: #ffd6ec; --mt-b: #d2f0ff; --pearl-edge: rgb(255 255 255 / .5); } }
+:root[data-theme="dark"] .rank.r-Pearl { --mt-a: #ffd6ec; --mt-b: #d2f0ff; --pearl-edge: rgb(255 255 255 / .5); }
+.rank.r-Pearl::after { animation: shine 4.2s linear infinite; }
+.rank.r-Pearl .ring {
+  background: conic-gradient(transparent 0 15%, #f2a5d2 28%, #d46fb0 36%, transparent 48% 65%, #a6dcff 78%, #5aa8e0 86%, transparent);
+  animation-duration: 2.4s;
+}
+.rank.r-Pearl .mt { background-image: linear-gradient(90deg, var(--mt-a), var(--mt-b), color-mix(in srgb, var(--mt-a) 50%, #8a4fc8), var(--mt-a)); }
+.rank.r-Pearl .tw { background: color-mix(in srgb, var(--mt-b) 40%, #fff); animation-duration: 1.4s; }
+
+/* Obsidian, the top gem: black glass with embers drifting through it, a violet ring running round, flowing lilac text */
+:root { --embers: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='24'%3E%3Ccircle cx='6' cy='5' r='0.7' fill='%23d8c4ff'/%3E%3Ccircle cx='19' cy='17' r='0.6' fill='%23ff8a5c' fill-opacity='0.9'/%3E%3Ccircle cx='31' cy='7' r='0.8' fill='%23b18cff'/%3E%3Ccircle cx='44' cy='19' r='0.6' fill='%23ffffff' fill-opacity='0.8'/%3E%3Ccircle cx='53' cy='9' r='0.5' fill='%23ffb07a' fill-opacity='0.9'/%3E%3C/svg%3E"); }
+.rank.r-Obsidian {
+  padding: 3px 11px 3px 8px; gap: 7px; border: 1.5px solid transparent;
+  background:
+    radial-gradient(120% 140% at 50% 120%, rgb(139 92 246 / .5), transparent 60%) padding-box,
+    linear-gradient(120deg, #07050c, #1c1230 50%, #07050c) padding-box,
+    conic-gradient(from var(--angle), #c4a8ff, #5b21b6, #f0e6ff, #7c3aed, #c4a8ff) border-box;
+  animation: spin 2.8s linear infinite, obsidian-glow 2.4s ease-in-out infinite;
+}
+.rank.r-Obsidian::after {
+  background: linear-gradient(105deg, transparent 35%, rgb(220 200 255 / .55) 50%, transparent 65%);
+  animation: shine 1.6s linear infinite;
+}
+.rank.r-Obsidian .sky { background: var(--embers) 0 0 / 60px 24px, var(--embers) 30px 12px / 40px 18px; animation-duration: 9s; }
+.rank.r-Obsidian .dv { background-image: linear-gradient(90deg, #c4a8ff, #fff, #ff9e6b, #c4a8ff); }
+.rank.r-Obsidian .sp { background: #e4d4ff; }
+.rank.r-Obsidian .sp:nth-child(5) { background: #ffb07a; }
+tbody tr.r-Obsidian td:first-child { box-shadow: inset 3px 0 0 #8b5cf6; }
+tr.r-Obsidian .meter i { background: linear-gradient(90deg, #c4a8ff, #7c3aed); }
+.fact b:has(.r-Obsidian, .r-Pearl) { overflow: visible; }
+@keyframes ruby-flash { 0%, 100% { filter: brightness(1); } 45% { filter: brightness(1.45) saturate(1.2); } 55% { filter: brightness(1); } }
+@keyframes obsidian-glow {
+  0%, 100% { box-shadow: 0 0 6px -1px rgb(139 92 246 / .55); }
+  50% { box-shadow: 0 0 16px 2px rgb(139 92 246 / .6), 0 0 26px 4px rgb(255 140 90 / .2); }
+}
+/* Rank guide */
+button.info {
+  display: inline-grid; place-items: center; width: 16px; height: 16px; margin-left: 4px; padding: 0; vertical-align: 1px;
+  border: 1.5px solid color-mix(in srgb, var(--fg) 45%, transparent); border-radius: 50%; background: var(--surface-2); color: color-mix(in srgb, var(--fg) 80%, transparent);
+  font: italic 700 10.5px/1 Georgia, serif; letter-spacing: 0; text-transform: none; cursor: pointer;
+}
+button.info:hover, button.info:focus-visible { color: var(--accent); border-color: var(--accent); outline: none; }
+.guide-dlg {
+  width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 0 0 8px; color: var(--fg); overflow: auto;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 24px 60px -20px rgb(0 0 0 / .5);
+}
+.guide-dlg::backdrop { background: rgb(0 0 0 / .45); }
+.guide-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 16px 10px; }
+.guide-head h2 { margin: 0; font-family: var(--font-display); font-size: 24px; font-weight: 700; text-transform: uppercase; }
+.guide-head > div { display: grid; gap: 2px; }
+.guide-sub { color: var(--muted); font-size: 13px; }
+.guide-head .btn { padding: 6px 14px; font-size: 13px; }
+table.guide td { padding-top: 9px; padding-bottom: 9px; }
+table.guide .sep { color: var(--muted); }
+table.guide tbody tr:hover td { background: none; }
+table.guide tbody tr:hover td:first-child { box-shadow: none; }
 .prov { font-size: 11px; color: var(--muted); border: 1px dashed var(--line); border-radius: 999px; padding: 1px 7px; margin-left: 6px; font-weight: 500; }
 
 .flt { font-family: var(--font-data); }
@@ -504,7 +661,7 @@ tr.r-Divine .meter i { background: linear-gradient(90deg, #ffd76a, #ff2e63); }
 .fact small { color: var(--muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
 .fact b { font-family: var(--font-data); font-weight: 600; font-size: 18px; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fact b.txt { font-family: var(--font-body); font-size: 16px; }
-.levels { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+.levels { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
 .lv { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; display: grid; gap: 8px; min-width: 0; }
 .lv-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .lv-top > span { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
@@ -519,7 +676,6 @@ button.lv:hover:not(:disabled) { border-color: var(--accent); }
 button.lv[aria-expanded="true"] { border-color: var(--accent); background: var(--accent-soft); }
 button.lv:disabled { cursor: default; }
 .lv-hint { font-size: 12px; color: var(--muted); font-weight: 500; }
-.lv-toggles { margin-top: 2px; }
 button.lv[aria-expanded="true"] .lv-hint, button.lv:hover:not(:disabled) .lv-hint { color: var(--accent); }
 .missing { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; display: grid; gap: 10px; }
 .missing-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
@@ -555,6 +711,18 @@ footer p { margin: 0; max-width: 65ch; }
   *, *::before, *::after { transition: none !important; animation: none !important; }
   ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
 }
+/* Phones: tighter cells, shorter names and smaller rank chips so every visible column fits without sideways scrolling */
+@media (max-width: 480px) {
+  td, th { padding-left: 6px; padding-right: 6px; }
+  .name { max-width: 108px; }
+  .rank { font-size: 11px; padding-right: 7px; gap: 4px; }
+  .rank:is(.r-Grand-Champ, .r-Mythic, .r-Ruby, .r-Pearl, .r-Divine, .r-Obsidian) { padding-right: 8px; }
+  .num { font-size: 13px; }
+  table.t-player td:first-child { max-width: 118px; overflow: hidden; text-overflow: ellipsis; }
+  table.t-runs td:nth-child(3) { max-width: 96px; overflow: hidden; text-overflow: ellipsis; }
+  table.t-runs .name { max-width: 80px; }
+  table.t-tracks td:first-child { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+}
 </style>
 </head>
 <body>
@@ -562,57 +730,44 @@ footer p { margin: 0; max-width: 65ch; }
 <header class="wrap mast">
   <div>
     <h1>Ninja <span>Points</span></h1>
-    <p class="sub">Trials Fusion ninja leaderboard &middot; levels 1 to 9 &middot; <span id="updated"></span><span id="custom-tag" hidden> &middot; <span class="custom-tag">custom scoring</span></span></p>
+    <p class="sub" id="updated"></p>
   </div>
   <div class="stats" id="stats"></div>
 </header>
 
 <div class="bar">
   <div class="wrap">
-    <button class="set-toggle" id="set-open" aria-controls="settings" aria-expanded="false">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h10M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
-      Scoring<span class="dot" id="set-dot" hidden></span>
-    </button>
     <nav class="seg" aria-label="View">
       <a href="#players" data-view="players">Players</a>
       <a href="#runs" data-view="runs">Top runs</a>
       <a href="#tracks" data-view="tracks">Tracks</a>
       <a href="#calc" data-view="calc">Calculator</a>
     </nav>
-    <label class="search" for="q">
+    <div class="search-box">
+      <label class="search" for="q">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-      <input id="q" type="search" placeholder="Search players or tracks" autocomplete="off">
-    </label>
+      <input id="q" type="search" placeholder="Search players or tracks" autocomplete="off" aria-controls="q-pop" aria-expanded="false">
+      </label>
+      <div class="q-pop" id="q-pop" role="listbox" aria-label="Search results" hidden></div>
+    </div>
   </div>
 </div>
 
-<div class="wrap layout" id="layout">
-  <aside class="settings" id="settings" aria-label="Scoring settings">
-    <div class="set-head"><h2>Scoring</h2><button class="set-close" id="set-close" aria-label="Close scoring settings">Close</button></div>
-    <p class="set-note" id="set-status"></p>
-    <div id="set-groups"></div>
-    <div class="set-foot"><button class="btn" id="set-reset">Reset</button><button class="btn" id="set-export">Export</button></div>
-  </aside>
+<div class="wrap">
   <main id="app"></main>
 </div>
-<div class="scrim" id="scrim" hidden></div>
-<dialog class="export" id="export" aria-labelledby="export-title">
-  <div class="export-head"><h2 id="export-title">Export settings</h2><button class="btn" id="export-close">Close</button></div>
-  <p class="set-note">Every setting as plain text, ready to paste. Copy as Python gives the same numbers as <code>points_calculator.py</code> constants.</p>
-  <textarea id="export-text" readonly spellcheck="false" aria-label="Settings as text"></textarea>
-  <div class="export-foot"><button class="btn" id="export-copy">Copy text</button><button class="btn" id="export-py">Copy as Python</button></div>
-</dialog>
 
 <footer class="wrap">
-  <p>Runs are scored by track rating and how cleanly they were ridden, then combined best first into an Elo. Raw points add up every run on a flatter curve. Track leaderboards are ordered by faults, then time. Players need <span id="min-runs">7</span> runs to get a place. The scoring panel changes the scoring on this device only.</p>
+  <p>Runs are scored by track rating and how cleanly they were ridden, then combined best first into an Elo, where a player's best runs count most. Total points add up every run's points, so every pass counts. Track leaderboards are ordered by faults, then time. Players need <span id="min-runs">7</span> runs to get a place.</p>
 </footer>
 
 <script id="data" type="application/octet-stream">__DATA__</script>
 <script id="scoring">
-// Scoring: a port of points_calculator.py, so the settings panel can rescore every run live. build_site.py bakes the Python
-// constants in as "settings". Nothing here touches the page, so it can be checked against the Python output on its own
+// THE SCORING: the page's copy of points_calculator.py. It scores every run and every player from the raw runs, using the exact
+// settings build_site.py copied over from the Python file. It must give the same numbers as the Python, so if the scoring changes
+// there, change it here too. It doesn't draw anything, so it can be tested against the Python's numbers on its own
 var NinjaScore = (() => {
-  // Straight lines through (x, y) rows sorted by rising x; the first and last lines carry on past the ends
+  // Reads a value off a table of (x, y) rows by drawing straight lines between them, the same as interpolate() in the Python
   const interp = (x, pts) => {
     let i = 1;
     while (i < pts.length - 1 && x > pts[i][0]) i++;
@@ -622,7 +777,7 @@ var NinjaScore = (() => {
   const roundEven = x => { const r = Math.round(x); return Math.abs(x % 1) === 0.5 && r % 2 ? r - 1 : r; };   // Python's round()
   const median = a => { const s = Float64Array.from(a).sort(), n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; };
 
-  // What doesn't depend on settings: each track's run count, raw median faults and median time, and each level's median faults
+  // Works out each track's "typical run" once: its number of passes, median faults and median time, plus each level's median faults
   function prepare(D) {
     const faults = D.tracks.map(() => []), times = D.tracks.map(() => []), byLevel = {};
     for (const [, ti, f, t] of D.runs) {
@@ -640,7 +795,7 @@ var NinjaScore = (() => {
     }));
   }
 
-  // (level, ln worth) rows from the level steps, and the points scale that puts a median level 8 pass at points_at_level_8
+  // How much a median pass is worth at each level (built from the level steps), scaled so a median level 8 pass is 5,000 points
   function curve(S) {
     const llw = [[S.level_steps[0][0], 0]];
     for (const [l, step] of S.level_steps) llw.push([l + 1, llw[llw.length - 1][1] + Math.log(step)]);
@@ -649,7 +804,8 @@ var NinjaScore = (() => {
   // Points a median pass on a track of this rating is worth
   const worthFn = S => { const { llw, scale } = curve(S); return l => scale * Math.exp(interp(l, llw)); };
 
-  // One run's score on track ti, with every step kept so the calculator can show its working
+  // Scores one run: the level it's scored at (rating + 0f bonus + time nudge) and its points. Every step is kept so the
+  // Calculator tab can show its working
   function runScorer(D, S, prep) {
     const worth = worthFn(S);
     const fc = S.fault_cap, zb = S.zero_fault_bonus;
@@ -659,31 +815,31 @@ var NinjaScore = (() => {
     return (ti, f, t) => {
       const rating = D.tracks[ti].Rating, med = medFaults[ti], mt = prep[ti].medianTime, c = cap(rating);
       const fullBonus = interp(Math.min(Math.max(rating, zb[0][0]), zb[zb.length - 1][0]), zb);
-      // 0f gets the full bonus; 1f drops to low_fault_share of it (the cliff), fading to nothing by low_fault_reach of the median
-      const bonus = f === 0 ? fullBonus : S.low_fault_share * Math.max(0, 1 - f / (S.low_fault_reach * med)) * fullBonus;
+      // The 0f bonus: the full bonus for a 0f; at 1f it drops to 63% of it (the 0f cliff), then fades to nothing by 20% of the
+      // track's median faults (2f at the earliest)
+      const fadeEnd = Math.max(S.low_fault_reach * med, 2);
+      const bonus = f === 0 ? fullBonus : S.low_fault_share * Math.max(0, (fadeEnd - f) / (fadeEnd - 1)) * fullBonus;
       const timeShift = S.time_shift_max * Math.max(-1, (mt - t) / mt);
-      // From level 9 up, only top_rating_spread of the rating above its whole level counts (a 9.5 scores as 9.275 at 0.55)
+      // From level 9 up, top_rating_spread can squash the decimals (it's 1 right now, so a 9.5 scores as 9.5)
       const scoredRating = rating < 9 ? rating : Math.floor(rating) + (rating - Math.floor(rating)) * S.top_rating_spread;
       const level = scoredRating + bonus + timeShift;
       const mult = f === 0 ? 1 + c : 1 + c * Math.tanh(S.fault_steepness * Math.log(med / f));
-      const raw = S.raw_points_at_level_1 * S.raw_points_step ** (level - 1) * mult;
-      return { rating, scoredRating, medianFaults: med, medianTime: mt, cap: c, fullBonus, bonus, timeShift, level, worth: worth(level), mult, points: worth(level) * mult, raw };
+      return { rating, scoredRating, medianFaults: med, medianTime: mt, cap: c, fullBonus, bonus, timeShift, level, worth: worth(level), mult, points: worth(level) * mult };
     };
   }
 
-  // Scores every run (runScore and runLevel, by D.runs index) and every player (by D.players index)
+  // Scores everything: every run's points, then every player's Elo score, total points, effective level, Elo, rank and gem
   function score(D, S, prep) {
     const { llw, scale } = curve(S);
     const inv = llw.map(([l, w]) => [w, l]);
     const levelFromWorth = w => interp(Math.log(w / scale), inv);
 
     const scoreRun = runScorer(D, S, prep);
-    const n = D.runs.length, runScore = new Float64Array(n), runLevel = new Float64Array(n), runRaw = new Float64Array(n);
+    const n = D.runs.length, runScore = new Float64Array(n), runLevel = new Float64Array(n);
     D.runs.forEach(([, ti, f, t], i) => {
       const r = scoreRun(ti, f, t);
       runLevel[i] = r.level;
       runScore[i] = r.points;
-      runRaw[i] = r.raw;
     });
 
     const eloFromLevel = l => Math.max(0, roundEven(interp(l, S.elo_curve)));
@@ -698,22 +854,24 @@ var NinjaScore = (() => {
     };
 
     let ref = 0;
-    for (let k = 0; k < S.min_runs; k++) ref += S.run_decay ** k;
+    for (let k = 0; k < S.reference_runs; k++) ref += S.run_decay ** k;   // A player's score over the decayed weight of reference_runs runs
     const limit = S.max_counted_runs || Infinity;
-    const scores = D.players.map(() => []), highest = D.players.map(() => -Infinity), raw = new Float64Array(D.players.length);
-    D.runs.forEach(([pi, ti], i) => { scores[pi].push(runScore[i]); raw[pi] += runRaw[i]; highest[pi] = Math.max(highest[pi], D.tracks[ti].Level); });
+    const scores = D.players.map(() => []), highest = D.players.map(() => -Infinity);
+    D.runs.forEach(([pi, ti], i) => { scores[pi].push(runScore[i]); highest[pi] = Math.max(highest[pi], D.tracks[ti].Level); });
     const players = scores.map((sc, pi) => {
       sc.sort((a, b) => b - a);
-      let total = 0;
+      let total = 0, sum = 0;
       for (let k = 0; k < sc.length && k < limit; k++) total += sc[k] * S.run_decay ** k;
+      for (const v of sc) sum += v;   // Total points: every run, no decay
       const level = levelFromWorth(total / ref), top = highest[pi] + 1;   // Rank gate: nothing above the rank of the hardest level passed
       return {
-        PlayerScore: total, RawPoints: raw[pi], Level: level, Runs: sc.length, Ranked: sc.length >= S.min_runs,
+        PlayerScore: total, TotalPoints: sum, Level: level, Runs: sc.length, Ranked: sc.length >= S.min_runs,
         Elo: level < top ? eloFromLevel(level) : eloFromLevel(top) - 1,
         Rank: rankFromLevel(Math.min(level, top - 1e-9)),
+        PointsRank: S.points_ranks.filter(([, start]) => start <= sum).at(-1)[0],   // The rarest gem whose gate the total has reached
       };
     });
-    return { runScore, runLevel, runRaw, players };
+    return { runScore, runLevel, players };
   }
 
   return { interp, roundEven, prepare, score, worthFn, runScorer };
@@ -721,31 +879,21 @@ var NinjaScore = (() => {
 </script>
 <script>
 (async () => {
-  // The page data is gzipped JSON in base64 (see build_site.py): unpack it before anything renders
+  // The data arrives packed (compressed, then written as letters and numbers; see build_site.py). Unpack it before drawing anything
   const packed = await fetch("data:application/octet-stream;base64," + document.getElementById("data").textContent.trim());
   const D = JSON.parse(await new Response(packed.body.pipeThrough(new DecompressionStream("gzip"))).text());
   const RUNS = D.runs.map(([pi, ti, Faults, Time]) => {   // Rows index players and tracks (see build_site.py); points come from rescore()
     const t = D.tracks[ti];
-    return { Player: D.players[pi], Track: t.Track, Level: t.Level, Faults, Time, score: 0, Points: 0, RunLevel: 0, raw: 0 };
+    return { Player: D.players[pi], Track: t.Track, Level: t.Level, Faults, Time, score: 0, Points: 0, RunLevel: 0 };
   });
 
-  // Scoring settings: the Python defaults, or this viewer's saved changes if they still fit the same rows
+  // The scoring settings, exactly as set in points_calculator.py
   const DEF = D.settings;
-  const EDITABLE = ["level_steps", "top_rating_spread", "zero_fault_bonus", "low_fault_share", "low_fault_reach", "fault_cap", "fault_steepness", "run_decay", "max_counted_runs", "min_runs", "raw_points_step"];   // What the panel can change
-  const SAVE_KEY = "np-settings";
-  const clone = o => JSON.parse(JSON.stringify(o));
-  const fits = (v, d) => Array.isArray(d)
-    ? Array.isArray(v) && v.length === d.length && v.every((row, i) => Array.isArray(row) && row[0] === d[i][0] && Number.isFinite(row[1]))
-    : Number.isFinite(v);
-  let S = clone(DEF);
-  try {
-    const saved = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
-    if (saved) EDITABLE.forEach(k => { if (fits(saved[k], DEF[k])) S[k] = saved[k]; });
-  } catch (e) {}
+  const S = DEF;
+  try { localStorage.removeItem("np-settings"); } catch (e) {}   // Scoring changes from the old settings panel
   const $ = (s, el = document) => el.querySelector(s);
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const fmtInt = n => n.toLocaleString("en-US");
-  const fmtRaw = v => v >= 100 ? fmtInt(Math.round(v)) : v.toFixed(1);   // Raw points: small numbers keep a decimal
   const fmtTime = ms => {
     const m = Math.floor(ms / 60000), s = Math.floor(ms / 1000) % 60, r = ms % 1000;
     return `${m}:${String(s).padStart(2, "0")}.${String(r).padStart(3, "0")}`;
@@ -753,7 +901,8 @@ var NinjaScore = (() => {
   const ord = n => { const v = n % 100; return n + (["th", "st", "nd", "rd"][(v - 20) % 10] || ["th", "st", "nd", "rd"][v] || "th"); };
   const posClass = n => n <= 3 ? ` top${n}` : "";
 
-  // Slugs for hash routing: ASCII letters, digits and hyphens only
+  // Every player and track gets a short web-address name, like #p-sly-gt4 or #t-claymore-9 (plain letters, numbers and dashes),
+  // so each one has its own link you can share or bookmark
   const used = new Set();
   const slugify = (prefix, s) => {
     let base = prefix + "-" + (s.normalize("NFKD").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase() || "x");
@@ -763,7 +912,7 @@ var NinjaScore = (() => {
     return slug;
   };
 
-  // Tracks
+  // Tracks: gather each track's runs and rank them by faults, then time (the track leaderboard order)
   const tkey = (t, l) => t + "\u0000" + l;
   const tracks = new Map();
   D.tracks.forEach((t, ti) => tracks.set(tkey(t.Track, t.Level), { ...t, ti, slug: slugify("t", `${t.Track} ${t.Level}`), runs: [] }));
@@ -786,7 +935,7 @@ var NinjaScore = (() => {
   trackList.forEach(t => { levelTotals[t.Level] = (levelTotals[t.Level] || 0) + 1; });
   const levelsDesc = Object.keys(levelTotals).map(Number).sort((a, b) => b - a);
 
-  // Players: Elo, rank, level and every run's points are filled in by rescore()
+  // Players: each one's list of runs. Their Elo, rank, level and points get filled in when everything is scored (rescore, below)
   const byIndex = D.players.map(name => ({ Player: name, slug: slugify("p", name), runs: [] }));   // D.players order, as the scorer returns them
   const players = byIndex.slice();   // Re-sorted by Elo on every rescore
   const playerByName = new Map(players.map(p => [p.Player, p]));
@@ -795,24 +944,20 @@ var NinjaScore = (() => {
 
   const allRuns = RUNS.slice();
   const prep = NinjaScore.prepare(D);
-  const byRaw = players.slice();   // Everyone by raw points, re-sorted on every rescore
-  let maxElo = 1, maxRaw = 1, ranked = 0;
+  let maxElo = 1, ranked = 0;
   function rescore() {
     const res = NinjaScore.score(D, S, prep);
-    RUNS.forEach((r, i) => { r.score = res.runScore[i]; r.Points = NinjaScore.roundEven(r.score); r.RunLevel = res.runLevel[i]; r.raw = res.runRaw[i]; });
+    RUNS.forEach((r, i) => { r.score = res.runScore[i]; r.Points = NinjaScore.roundEven(r.score); r.RunLevel = res.runLevel[i]; });
     res.players.forEach((s, i) => Object.assign(byIndex[i], s));
     players.sort((a, b) => b.Elo - a.Elo || b.PlayerScore - a.PlayerScore);
     ranked = 0;
     players.forEach(p => { p.Place = p.Ranked ? ++ranked : null; p.runs.sort((a, b) => b.score - a.score); });
-    byRaw.sort((a, b) => b.RawPoints - a.RawPoints);
-    byRaw.forEach((p, i) => { p.RawPlace = i + 1; });   // Raw points need no minimum runs: everyone has a place
     allRuns.sort((a, b) => b.score - a.score);
     allRuns.forEach((r, i) => { r.overall = i + 1; });
     maxElo = Math.max(1, ...players.map(p => p.Elo));
-    maxRaw = Math.max(1, byRaw[0]?.RawPoints || 0);
   }
 
-  $("#updated").textContent = "updated " + new Date(D.generated + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  $("#updated").textContent = "Updated " + new Date(D.generated + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
   const renderStats = () => {
     $("#stats").innerHTML = [
       [ranked, "ranked players"], [allRuns.length, "runs"], [trackList.length, "tracks"]
@@ -820,7 +965,7 @@ var NinjaScore = (() => {
     $("#min-runs").textContent = S.min_runs;
   };
 
-  // Pieces
+  // Small reusable pieces: rank badges, gem badges, links to players and tracks, and the faults display (0f gets highlighted)
   const rankClass = r => `r-${esc(r.replace(/ (I|II|III)$/, "").replace(/ /g, "-"))}`;   // Tier (I, II, III) shares its rank's colour
   // Higher ranks carry extra layers. Divine: a starfield, gradient text and twinkles. Diamond up: twinkles, more each step.
   // Grand Champ and Mythic: a ring of light behind a plate. Mythic: gradient lettering
@@ -834,74 +979,135 @@ var NinjaScore = (() => {
     const tw = Array.from({ length: TWINKLES[base] || 0 }, (_, i) => `<i class="tw tw${i + 1}"></i>`).join("");
     return `<span class="rank ${rankClass(r)}">${ring}${label}${tw}</span>`;
   };
+  // Gem chips climb like the Elo ones: Sapphire, Emerald, Ruby and Pearl gain twinkles (1, 3, 4, 6), Ruby and Pearl a ring of light,
+  // Pearl pearlescent lettering, and Obsidian is its own volcanic-glass piece like Divine
+  const GEM_PREVIEW = {};   // Display-only gem overrides to preview a look, e.g. { Sly_GT4: "Obsidian" }. Keep empty when publishing
+  const gemOf = p => GEM_PREVIEW[p.Player] || p.PointsRank;
+  const GEM_TWINKLES = { Sapphire: 1, Emerald: 3, Ruby: 4, Pearl: 6 };
+  const GEM_RINGED = new Set(["Ruby", "Pearl"]);
+  const gemChip = g => {
+    const base = g.replace(/ (I|II|III)$/, "");
+    if (base === "Obsidian") return `<span class="rank gem r-Obsidian"><i class="sky"></i><span class="dv">Obsidian</span>${'<i class="sp"></i>'.repeat(5)}<svg class="obs-ic" viewBox="0 0 12 12" aria-hidden="true"><polygon points="4,0.8 11.2,4 8.6,11.2 0.8,8.4" fill="#0b0812" stroke="#b18cff" stroke-width="1.1" stroke-linejoin="round"/><polyline points="4,0.8 5.4,5.6 11.2,4" fill="none" stroke="#6d5a9a" stroke-width=".7"/><line x1="5.4" y1="5.6" x2="8.6" y2="11.2" stroke="#3a2d5c" stroke-width=".6"/></svg></span>`;
+    const ring = GEM_RINGED.has(base) ? '<i class="ring"></i><i class="plate"></i>' : "";
+    const label = base === "Pearl" ? `<span class="mt">${esc(g)}</span>` : esc(g);
+    const tw = Array.from({ length: GEM_TWINKLES[base] || 0 }, (_, i) => `<i class="tw tw${i + 1}"></i>`).join("");
+    return `<span class="rank gem ${rankClass(g)}">${ring}${label}${tw}</span>`;
+  };
   const pLink = p => p ? `<a class="lnk" href="#${p.slug}">${esc(p.Player)}</a>` : "";
   const tLink = t => `<a class="lnk trk" href="#${t.slug}">${esc(t.Track)}<span class="lvl">L${t.Level}</span></a>`;
   const faults = f => `<span class="flt${f === 0 ? " zero" : ""}"${f === 0 ? ' title="Zero faults"' : ""}>${f}</span>`;
 
-  // State
+  // What the page currently has switched on: the search text, which levels are filtered, the sort order, "0f only", and so on.
+  // Every redraw reads from here. A few choices (like Level progress) are remembered by your browser for next time
   const PAGE = 100;   // Rows per page in long tables; "Show more" adds another page
-  const state = { q: "", unranked: true, raw: false, shown: PAGE, levels: new Set(), missing: null, calc: { track: null, trackText: "", faults: "", time: "" } };
-  const prefs = { unranked: true, missing: true, settings: true };   // Show unranked players, missing tracks on player pages, the scoring column (wide screens)
+  const state = { q: "", totalLevels: new Set(), totalSort: { key: "points", dir: -1 }, zeroOnly: false, shown: PAGE, levels: new Set(), missing: null, calc: { track: null, trackText: "", faults: "", time: "" } };
+  const prefs = { progress: false };   // Show level progress on player pages
   try { const s = JSON.parse(localStorage.getItem("np-prefs") || "{}"); for (const k in prefs) if (typeof s[k] === "boolean") prefs[k] = s[k]; } catch (e) {}
-  state.unranked = prefs.unranked;
-  const savePrefs = () => { prefs.unranked = state.unranked; try { localStorage.setItem("np-prefs", JSON.stringify(prefs)); } catch (e) {} };
+  const savePrefs = () => { try { localStorage.setItem("np-prefs", JSON.stringify(prefs)); } catch (e) {} };
   const match = (...fields) => !state.q || fields.some(f => f.toLowerCase().includes(state.q));
   let lastList = "players";
+  const backLabel = () => ({ runs: "top runs", points: "total points" }[lastList] || lastList);
 
-  // "Show more" row under a paged table; "Show all" only once the rest is small enough to draw at once
+  // Long tables show 100 rows at a time. This is the "Show more" button under them (plus "Show all" once what's left isn't too many)
   const moreRow = left => left > 0 ? `<div class="more"><button class="btn" id="more">Show ${fmtInt(Math.min(left, PAGE))} more <span style="color:var(--muted);font-weight:500">of ${fmtInt(left)}</span></button>${left <= 2000 ? '<button class="btn" id="all" style="margin-left:8px">Show all</button>' : ""}</div>` : "";
 
-  // Views
-  function viewPlayers() {
-    // Two orders: Elo (skill, best runs first with decay) or raw points (every run added up, no minimum runs)
-    const raw = state.raw;
-    const all = raw ? byRaw.filter(p => match(p.Player)) : players.filter(p => (state.unranked || p.Ranked) && match(p.Player));
+  // THE PAGES. Each function below draws one page: the boards, top runs, tracks, a track, a player, the calculator
+  // Elo spread: ranked players by rank division (Iron I up), each bar in its rank's colour and labelled by rank underneath.
+  // Divisions above the highest anyone holds are left off, so Divine appears once someone reaches it. Each column is its own hover target, the full height of the plot
+  function eloSpread() {
+    const ranked = players.filter(p => p.Ranked);
+    if (!ranked.length) return "";
+    const R = S.ranks, T = S.rank_tiers;
+    const groups = R.map(([r], i) => ({ r, divs: i === R.length - 1 ? [r] : T.map(t => `${r} ${t}`) }));
+    const count = new Map();
+    ranked.forEach(p => count.set(p.Rank, (count.get(p.Rank) || 0) + 1));
+    while (groups.length > 1 && !groups.at(-1).divs.some(d => count.get(d))) groups.pop();
+    const divs = groups.flatMap(g => g.divs), max = Math.max(...divs.map(d => count.get(d) || 0));
+    const cols = `grid-template-columns: repeat(${divs.length}, minmax(0, 1fr))`;
+    const share = c => { const v = c / ranked.length * 100; return v >= 1 || !c ? `${Math.round(v)}%` : `${v.toFixed(1)}%`; };
+    return `
+      <div class="card chart">
+        <div class="chart-head"><h3>Elo spread</h3><span>${fmtInt(ranked.length)} players with ${S.min_runs} or more runs</span></div>
+        <div class="hist" style="${cols}">${divs.map(d => { const c = count.get(d) || 0; return `<span class="hb ${rankClass(d)}" tabindex="0" data-tip="${esc(d)}: ${fmtInt(c)} player${c === 1 ? "" : "s"}" aria-label="${esc(d)}: ${c} players, ${share(c)}"><b>${share(c)}</b><i style="height:${(c / max * 100).toFixed(1)}%"></i></span>`; }).join("")}</div>
+        <div class="hist-r" style="${cols}" aria-hidden="true">${groups.map(g => `<span class="${rankClass(g.r)}" style="grid-column: span ${g.divs.length}" title="${esc(g.r)}">${esc(g.r)}</span>`).join("")}</div>
+      </div>`;
+  }
+
+  function viewPlayers(total) {
+    // Two boards. Elo (skill: best runs first with decay, so padding adds nothing) and total points (the grind: every run's points
+    // added up, no decay and no minimum runs). The total board can count only some levels, and sorts by points or runs
+    const lv = state.totalLevels, sort = state.totalSort;
+    let byTotal = [], maxTotal = 1;
+    if (total) {
+      players.forEach(p => {
+        if (!lv.size) { p.Counted = p.TotalPoints; p.CountedRuns = p.Runs; return; }
+        let t = 0, c = 0;
+        for (const r of p.runs) {
+          if (lv.size && !lv.has(r.Level)) continue;
+          t += r.score; c++;
+        }
+        p.Counted = t; p.CountedRuns = c;
+      });
+      const key = { points: p => p.Counted, runs: p => p.CountedRuns }[sort.key];
+      byTotal = players.filter(p => p.CountedRuns > 0)
+        .sort((a, b) => sort.dir * (key(a) - key(b)) || b.Counted - a.Counted || b.PlayerScore - a.PlayerScore);
+      byTotal.forEach((p, i) => { p.TotalPlace = i + 1; });   // Total points need no minimum runs: everyone has a place
+      maxTotal = byTotal.reduce((m, p) => Math.max(m, p.Counted), 1);   // Meters stay scaled to the most points whatever the sort
+    }
+    const all = (total ? byTotal : players).filter(p => match(p.Player));
     const list = all.slice(0, state.shown);
-    const top3 = state.q ? [] : raw ? byRaw.slice(0, 3) : players.filter(p => p.Ranked).slice(0, 3);
+    const podium = !state.q && (!total || (sort.key === "points" && sort.dir < 0));   // Only when the board is best first
+    const top3 = !podium ? [] : total ? byTotal.slice(0, 3) : players.filter(p => p.Ranked).slice(0, 3);
     const body = list.map(p => {
-      const placed = raw || p.Ranked, place = raw ? p.RawPlace : p.Place;
-      const meter = raw
-        ? `<div class="elo ${rankClass(p.Rank)}"><span class="meter"><i style="width:${(p.RawPoints / maxRaw * 100).toFixed(1)}%"></i></span><b>${fmtRaw(p.RawPoints)}</b></div>`
-        : `<div class="elo ${rankClass(p.Rank)}"><span class="meter"><i style="width:${(p.Elo / maxElo * 100).toFixed(1)}%"></i></span><b>${fmtInt(p.Elo)}</b></div>`;
+      const placed = total || p.Ranked, place = total ? p.TotalPlace : p.Place;
+      const [w, v] = total ? [p.Counted / maxTotal, fmtInt(Math.round(p.Counted))] : [p.Elo / maxElo, fmtInt(p.Elo)];
+      const rc = rankClass(total ? gemOf(p) : p.Rank);
       return `
-      <tr class="${rankClass(p.Rank)}${placed ? "" : " dim"}">
+      <tr class="${rc}${placed ? "" : " dim"}">
         <td class="pos${placed ? posClass(place) : ""}">${placed ? place : "&ndash;"}</td>
-        <td class="name">${pLink(p)}${p.Ranked ? "" : '<span class="prov">unranked</span>'}</td>
-        <td>${rankChip(p.Rank)}</td>
-        <td class="num">${meter}</td>
-        <td class="num hide-sm">${raw ? fmtInt(p.Elo) : fmtRaw(p.RawPoints)}</td>
-        <td class="num hide-sm">${p.Level.toFixed(2)}</td>
-        <td class="num hide-sm">${p.Runs}</td>
+        <td class="name">${pLink(p)}${total || p.Ranked ? "" : '<span class="prov">unranked</span>'}</td>
+        <td>${total ? gemChip(gemOf(p)) : rankChip(p.Rank)}</td>
+        <td class="num"><div class="elo ${rc}"><span class="meter"><i style="width:${(w * 100).toFixed(1)}%"></i></span><b>${v}</b></div></td>
+        <td class="num hide-sm">${total ? fmtInt(p.CountedRuns) : p.Level.toFixed(2)}</td>
       </tr>`;
     }).join("");
-    const main = raw ? "Raw points" : "Elo", other = raw ? "Elo" : "Raw points";
+    // Total board headers sort: first click on a column sorts it highest first, a second click flips it
+    const th = (key, label, cls) => {
+      if (!total) return `<th class="${cls}">${label}</th>`;
+      const on = sort.key === key, dir = on ? (sort.dir < 0 ? "descending" : "ascending") : "none";
+      return `<th class="${cls}" aria-sort="${dir}"><button class="sort${on ? " on" : ""}" data-sort="${key}">${label}<span aria-hidden="true">${on ? (sort.dir < 0 ? " &#9662;" : " &#9652;") : ""}</span></button></th>`;
+    };
+    const boards = `<nav class="seg board-seg" aria-label="Leaderboard">
+          <a href="#players" aria-current="${total ? "false" : "page"}">Elo</a><a href="#points" aria-current="${total ? "page" : "false"}">Total points</a></nav>`;
     return `
       <div class="head">
-        <div><h2>${raw ? "Raw points" : "Player Elo"}</h2><p>${raw ? `Every run added up, no minimum runs: ${fmtInt(byRaw.length)} players` : `${ranked} ranked, ${players.length - ranked} unranked`}</p></div>
+        <div><h2>${total ? "Total points" : "Player Elo"}</h2></div>
         <div class="toggles">
-          <button class="chipbtn" id="tg-raw" aria-pressed="${raw}">Sort by raw points</button>
-          ${raw ? "" : `<button class="chipbtn" id="tg-unranked" aria-pressed="${state.unranked}">Show unranked</button>`}
+          ${boards}
         </div>
       </div>
+      ${total ? `<div class="toggles lv-filter">${levelsDesc.map(l => `<button class="chipbtn" data-tlevel="${l}" aria-pressed="${lv.has(l)}">Level ${l}</button>`).join("")}</div>` : ""}
       ${top3.length ? `<div class="podium">${top3.map((p, i) => {
-        const v = raw ? Math.round(p.RawPoints) : p.Elo;
+        const v = total ? Math.round(p.Counted) : p.Elo;
         return `
         <a class="pod p${i + 1}" href="#${p.slug}">
           <span class="pos">${ord(i + 1)}</span>
           <span class="nm">${esc(p.Player)}</span>
-          <span class="el"><span class="ct" data-count="${v}" style="min-width:${fmtInt(v).length}ch">${fmtInt(v)}</span><small>${raw ? "raw points" : "Elo"}</small></span>
+          <span class="el"><span class="ct" data-count="${v}" style="min-width:${fmtInt(v).length}ch">${fmtInt(v)}</span><small>${total ? "points" : "Elo"}</small></span>
         </a>`;
       }).join("")}</div>` : ""}
-      <div class="card"><div class="scroll"><table>
-        <thead><tr><th>#</th><th>Player</th><th>Rank</th><th class="num">${main}</th><th class="num hide-sm">${other}</th><th class="num hide-sm">Level</th><th class="num hide-sm">Runs</th></tr></thead>
-        <tbody>${body || `<tr><td colspan="7" class="empty">No players match &ldquo;${esc(state.q)}&rdquo;.</td></tr>`}</tbody>
+      ${total || state.q ? "" : eloSpread()}
+      <div class="card"><div class="scroll"><table class="t-players">
+        <thead><tr><th>#</th><th>Player</th><th>Rank ${infoBtn(total ? "gems" : "elo")}</th>${th("points", total ? "Points" : "Elo", "num")}${th("runs", total ? "Runs" : "Level", "num hide-sm")}</tr></thead>
+        <tbody>${body || `<tr><td colspan="5" class="empty">${state.q ? `No players match &ldquo;${esc(state.q)}&rdquo;.` : "No runs at these levels."}</td></tr>`}</tbody>
       </table></div>
       ${moreRow(all.length - list.length)}
       </div>`;
   }
 
   function viewRuns() {
-    const list = allRuns.filter(r => match(r.Player, r.Track));
+    const zero = state.zeroOnly;   // 0f only; the # column keeps each run's overall place
+    const list = allRuns.filter(r => (!zero || r.Faults === 0) && match(r.Player, r.Track));
     const shown = list.slice(0, state.shown);
     const body = shown.map(r => `
       <tr>
@@ -915,11 +1121,12 @@ var NinjaScore = (() => {
     const left = list.length - shown.length;
     return `
       <div class="head">
-        <div><h2>Top runs</h2><p>Every run, ranked by points</p></div>
+        <div><h2>Top runs</h2></div>
+        <div class="toggles"><button class="chipbtn" id="tg-zero" aria-pressed="${zero}">0f only</button></div>
       </div>
-      <div class="card"><div class="scroll"><table>
+      <div class="card"><div class="scroll"><table class="t-runs">
         <thead><tr><th>#</th><th>Player</th><th>Track</th><th class="num">Faults</th><th class="num hide-sm">Time</th><th class="num">Points</th></tr></thead>
-        <tbody>${body || `<tr><td colspan="6" class="empty">No runs match &ldquo;${esc(state.q)}&rdquo;.</td></tr>`}</tbody>
+        <tbody>${body || `<tr><td colspan="6" class="empty">${state.q ? `No ${zero ? "0f " : ""}runs match &ldquo;${esc(state.q)}&rdquo;.` : "No 0f runs."}</td></tr>`}</tbody>
       </table></div>
       ${moreRow(left)}
       </div>`;
@@ -933,19 +1140,19 @@ var NinjaScore = (() => {
       return `<tr>
         <td>${tLink(t)}</td>
         <td class="num">${t.Rating.toFixed(2)}</td>
-        <td class="num hide-sm">${t.VoteCount || "&ndash;"}</td>
         <td class="num">${t.runs.length}</td>
         <td class="name hide-sm">${pLink(rec.p) || esc(rec.Player)}</td>
         <td class="num">${faults(rec.Faults)}</td>
+        <td class="num hide-sm">${fmtTime(rec.Time)}</td>
       </tr>`;
     }).join("");
     return `
       <div class="head">
-        <div><h2>Tracks</h2><p>Hardest first, by rating</p></div>
+        <div><h2>Tracks</h2></div>
         <div class="toggles">${lv.map(l => `<button class="chipbtn" data-level="${l}" aria-pressed="${state.levels.has(l)}">Level ${l}</button>`).join("")}</div>
       </div>
-      <div class="card"><div class="scroll"><table>
-        <thead><tr><th>Track</th><th class="num">Rating</th><th class="num hide-sm">Votes</th><th class="num">Passes</th><th class="hide-sm">Record holder</th><th class="num">Best</th></tr></thead>
+      <div class="card"><div class="scroll"><table class="t-tracks">
+        <thead><tr><th>Track</th><th class="num">Rating</th><th class="num">Passes</th><th class="hide-sm">Record holder</th><th class="num">Faults</th><th class="num hide-sm">Time</th></tr></thead>
         <tbody>${body || `<tr><td colspan="6" class="empty">No tracks match.</td></tr>`}</tbody>
       </table></div></div>`;
   }
@@ -965,29 +1172,27 @@ var NinjaScore = (() => {
     const rec = t.runs[0];
     const fastest = t.runs.reduce((a, b) => b.Time < a.Time ? b : a);
     return `
-      <a class="back" href="#${lastList}">&larr; Back to ${lastList === "runs" ? "top runs" : lastList}</a>
+      <a class="back" href="#${lastList}">&larr; Back to ${backLabel()}</a>
       <section class="hero">
         <div><div class="eyebrow">Ninja level ${t.Level} track</div><h2>${esc(t.Track)}</h2></div>
         <div class="facts">
           <div class="fact"><small>Rating</small><b>${t.Rating.toFixed(2)}</b></div>
-          <div class="fact"><small>Votes</small><b>${t.VoteCount || "None"}</b></div>
           <div class="fact"><small>Passes</small><b>${t.runs.length}</b></div>
           <div class="fact"><small>Median faults</small><b>${t.median}</b></div>
           <div class="fact"><small>Fastest</small><b>${fmtTime(fastest.Time)}</b></div>
           <div class="fact"><small>Record</small><b class="txt">${esc(rec.Player)}</b></div>
         </div>
       </section>
-      <div class="card"><div class="scroll"><table>
+      <div class="card"><div class="scroll"><table class="t-track">
         <thead><tr><th>#</th><th>Player</th><th class="num">Faults</th><th class="num">Time</th><th class="num hide-sm">Run level</th><th class="num">Points</th></tr></thead>
         <tbody>${body || `<tr><td colspan="6" class="empty">No runs by &ldquo;${esc(state.q)}&rdquo; on this track.</td></tr>`}</tbody>
       </table></div>
       ${moreRow(all.length - list.length)}
       </div>
-      ${t.VoteCount ? "" : `<p class="note">Nobody has voted on this track yet, so it counts at its flat level of ${t.Level}.</p>`}
       <p class="note"><a class="lnk" href="#calc:${t.slug}" style="color:var(--accent)">Score a run on this track &rarr;</a></p>`;
   }
 
-  // Points calculator: any faults and time on any track, scored with the current settings against the track's current runs
+  // Points calculator: scores a made-up run (any faults and time on any track) exactly like a real one, and shows where it would place
   const trackLabel = t => `${t.Track} (level ${t.Level})`;
   const trackByLabel = new Map(trackList.map(t => [trackLabel(t).toLowerCase(), t]));
   const byName = new Map();   // A bare track name finds its track when only one level has a track by that name
@@ -1016,7 +1221,7 @@ var NinjaScore = (() => {
     const r = scoreRun(t.ti, f, tm), points = Math.round(r.points);
     const trackPlace = t.runs.filter(x => x.Faults < f || (x.Faults === f && x.Time < tm)).length + 1;
     const overall = allRuns.filter(x => x.score > r.points).length + 1;
-    const fadeAt = S.low_fault_reach * r.medianFaults;
+    const fadeAt = Math.max(S.low_fault_reach * r.medianFaults, 2);
     const bonusText = f === 0 ? `full bonus` : r.bonus > 0 ? `${Math.round(r.bonus / r.fullBonus * 100)}% kept (1f keeps ${tidy(S.low_fault_share * 100)}%), gone at ${tidy(fadeAt).toFixed(1)}f` : `none from ${tidy(fadeAt).toFixed(1)}f`;
     const line = (k, v, note) => `<div class="calc-line"><span>${k}</span><b>${v}</b>${note ? `<small>${note}</small>` : ""}</div>`;
     return `
@@ -1028,13 +1233,12 @@ var NinjaScore = (() => {
         </div>
       </div>
       <div class="calc-lines">
-        ${line("Track rating", r.rating.toFixed(2), (t.VoteCount ? `median of ${t.VoteCount} votes` : "no votes yet, flat level") + (r.scoredRating !== r.rating ? `; scored as ${r.scoredRating.toFixed(3)} (level 9 and up count ${tidy(S.top_rating_spread * 100)}% of the decimals)` : ""))}
+        ${line("Track rating", r.rating.toFixed(2), (r.scoredRating !== r.rating ? `scored as ${r.scoredRating.toFixed(3)} (level 9 and up count ${tidy(S.top_rating_spread * 100)}% of the decimals)` : ""))}
         ${line("0f bonus", `${fmtSigned(r.bonus, 2)} levels`, `${bonusText} (up to ${r.fullBonus.toFixed(2)})`)}
         ${line("Time", `${fmtSigned(r.timeShift, 3)} levels`, `${fmtTime(Math.round(tm))} against a median of ${fmtTime(Math.round(r.medianTime))}`)}
         ${line("Scored at", `level ${r.level.toFixed(2)}`, `a median pass there is worth ${fmtInt(Math.round(r.worth))}`)}
         ${line("Faults", `×${r.mult.toFixed(3)}`, `${tidy(f)}f against a median of ${r.medianFaults.toFixed(1)}; most faults can move it is ±${tidy(r.cap * 100)}%`)}
         ${line("Points", fmtInt(points), `${fmtInt(Math.round(r.worth))} × ${r.mult.toFixed(3)}`)}
-        ${line("Raw points", fmtRaw(r.raw), `${tidy(S.raw_points_step)}× per level from ${tidy(S.raw_points_at_level_1)} at level 1, × ${r.mult.toFixed(3)} for faults`)}
       </div>`;
   }
 
@@ -1042,7 +1246,7 @@ var NinjaScore = (() => {
     if (fromTrack) { state.calc.track = fromTrack; state.calc.trackText = trackLabel(fromTrack); }
     const c = state.calc;
     return `
-      <div class="head"><div><h2>Points calculator</h2><p>Score a run on any track with the current scoring settings. Leave faults or time blank for the track median</p></div></div>
+      <div class="head"><div><h2>Points calculator</h2></div></div>
       <div class="calc">
         <div class="card calc-form">
           <label class="calc-field"><span>Track</span>
@@ -1057,8 +1261,70 @@ var NinjaScore = (() => {
       </div>`;
   }
 
+  // Where a player's Elo comes from: each run's share of the decayed score, by level, split into passes, low-fault runs (faults
+  // still earning some 0f bonus) and 0f runs. Levels under 1% are left out
+  const CATS = ["Passes", "Low-fault runs", "0f runs"];
+  const pct = v => `${(v * 100).toFixed(1)}%`;   // Hover detail; the totals on the right are whole percents
+  let scoreOne = null;
+  function eloByLevel(p) {
+    scoreOne ||= NinjaScore.runScorer(D, S, prep);
+    const lim = S.max_counted_runs || Infinity, by = new Map();
+    let tot = 0;
+    p.runs.forEach((r, k) => {   // p.runs is best first, the order the decay counts them in
+      if (k >= lim) return;
+      const w = r.score * S.run_decay ** k;
+      const cat = r.Faults === 0 ? 2 : scoreOne(r.t.ti, r.Faults, r.Time).bonus > 0 ? 1 : 0;
+      if (!by.has(r.Level)) by.set(r.Level, [[0, 0], [0, 0], [0, 0]]);
+      const c = by.get(r.Level)[cat];
+      c[0] += w; c[1]++; tot += w;
+    });
+    if (!tot) return "";
+    const rows = [...by].map(([l, c]) => ({ l, c, share: c.reduce((s, x) => s + x[0], 0) / tot }))
+      .filter(r => r.share > 0.01).sort((a, b) => b.l - a.l);
+    const max = Math.max(...rows.map(r => r.share));
+    return `
+      <div class="card chart">
+        <div class="chart-head"><h3>Elo by level</h3><div class="legend">${CATS.map((c, i) => `<span><i class="sw c${i}"></i>${c}</span>`).join("")}</div></div>
+        <div class="lvc">${rows.map(({ l, c, share }) => `
+          <div class="lvc-row">
+            <span class="lvc-l">Level ${l}</span>
+            <span class="lvc-track"><span class="lvc-bar" style="width:${(share / max * 100).toFixed(1)}%">${c.map(([w, k], i) => w > 0
+              ? `<i class="c${i}" style="flex:${w}" tabindex="0" data-tip="Level ${l} ${CATS[i].toLowerCase()}: ${pct(w / tot)} of Elo from ${k} run${k === 1 ? "" : "s"}" aria-label="Level ${l} ${CATS[i].toLowerCase()}: ${pct(w / tot)} of Elo"></i>` : "").join("")}</span></span>
+            <b class="lvc-v">${Math.round(share * 100)}%</b>
+          </div>`).join("")}
+        </div>
+      </div>`;
+  }
+
+  // Level progress (behind a toggle): a box for each level the player has passes at; levels with none fold into one line of chips.
+  // Any box or chip opens that level's missing tracks
+  function levelProgress(p) {
+    const done = l => new Set(p.runs.filter(r => r.Level === l).map(r => r.Track)).size;
+    const started = levelsDesc.filter(l => done(l) > 0), none = levelsDesc.filter(l => done(l) === 0);
+    const boxes = started.map(l => {
+      const d = done(l), total = levelTotals[l], full = d === total, open = state.missing === l;
+      return `<button class="lv${full ? " full" : ""}" data-missing="${l}" aria-expanded="${open}" ${full ? "disabled" : ""}>
+        <span class="lv-top"><span>Level ${l}s</span><b>${d}<span>/${total}</span></b></span>
+        <span class="lv-bar"><i style="width:${(d / total * 100).toFixed(1)}%"></i></span>
+        <small class="lv-hint">${full ? "All passed" : `${total - d} missing <span aria-hidden="true">${open ? "&#9652;" : "&#9662;"}</span>`}</small>
+      </button>`;
+    }).join("");
+    const rest = none.length ? `<div class="lv-none"><span>No passes yet</span>${none.map(l =>
+      `<button class="chipbtn" data-missing="${l}" aria-expanded="${state.missing === l}">Level ${l} <span class="lv-of">0/${levelTotals[l]}</span></button>`).join("")}</div>` : "";
+    let miss = "";
+    if (state.missing != null) {
+      const have = new Set(p.runs.map(r => r.t));
+      const list = trackList.filter(t => t.Level === state.missing && !have.has(t));
+      if (list.length) miss = `<div class="missing">
+        <div class="missing-head"><b>Missing level ${state.missing}s</b><span>${list.length} tracks, hardest first</span></div>
+        <ul>${list.map(t => `<li><a class="lnk" href="#${t.slug}">${esc(t.Track)}</a><span>${t.Rating.toFixed(2)}</span></li>`).join("")}</ul>
+      </div>`;
+    }
+    return `<div class="progress">${boxes ? `<div class="levels">${boxes}</div>` : ""}${rest}${miss}</div>`;
+  }
+
   function viewPlayer(p) {
-    const list = p.runs.filter(r => match(r.Track));
+    const list = p.runs.filter(r => (!state.zeroOnly || r.Faults === 0) && match(r.Track));
     const records = p.runs.filter(r => r.trackPos === 1).length;
     const flawless = p.runs.filter(r => r.Faults === 0).length;
     const body = list.map(r => `
@@ -1070,46 +1336,76 @@ var NinjaScore = (() => {
         <td class="num pts">${fmtInt(r.Points)}</td>
       </tr>`).join("");
     return `
-      <a class="back" href="#${lastList}">&larr; Back to ${lastList === "runs" ? "top runs" : lastList}</a>
+      <a class="back" href="#${lastList}">&larr; Back to ${backLabel()}</a>
       <section class="hero">
         <div><div class="eyebrow">${p.Ranked ? `${ord(p.Place)} place` : `Unranked &middot; needs ${S.min_runs} runs`}</div><h2>${esc(p.Player)}</h2></div>
         <div class="facts">
           <div class="fact"><small>Elo</small><b data-count="${p.Elo}">${fmtInt(p.Elo)}</b></div>
-          <div class="fact"><small>Rank</small><b class="txt">${rankChip(p.Rank)}</b></div>
+          <div class="fact"><small>Rank ${infoBtn("elo")}</small><b class="txt">${rankChip(p.Rank)}</b></div>
           <div class="fact"><small>Level</small><b>${p.Level.toFixed(2)}</b></div>
-          <div class="fact"><small>Raw points</small><b>${fmtRaw(p.RawPoints)}</b></div>
+          <div class="fact"><small>Total points</small><b>${fmtInt(Math.round(p.TotalPoints))}</b></div>
+          <div class="fact"><small>Points rank ${infoBtn("gems")}</small><b class="txt">${gemChip(gemOf(p))}</b></div>
           <div class="fact"><small>Runs</small><b>${p.Runs}</b></div>
           <div class="fact"><small>Track records</small><b>${records}</b></div>
           <div class="fact"><small>0f runs</small><b>${flawless}</b></div>
         </div>
-        <div class="toggles lv-toggles"><button class="chipbtn" id="tg-missing" aria-pressed="${prefs.missing}">Show missing tracks</button></div>
-        <div class="levels">${levelsDesc.map(l => {
-          const done = new Set(p.runs.filter(r => r.Level === l).map(r => r.Track)).size, total = levelTotals[l];
-          const bits = `<span class="lv-top"><span>Level ${l}s</span><b>${done}<span>/${total}</span></b></span>
-            <span class="lv-bar"><i style="width:${(done / total * 100).toFixed(1)}%"></i></span>`;
-          if (!prefs.missing) return `<div class="lv${done === total ? " full" : ""}">${bits}</div>`;
-          const open = state.missing === l;
-          return `<button class="lv${done === total ? " full" : ""}" data-missing="${l}" aria-expanded="${open}" ${done === total ? "disabled" : ""}>
-            ${bits}
-            <small class="lv-hint">${done === total ? "All passed" : `${total - done} missing <span aria-hidden="true">${open ? "&#9652;" : "&#9662;"}</span>`}</small>
-          </button>`;
-        }).join("")}</div>
-        ${prefs.missing && state.missing != null ? (() => {
-          const have = new Set(p.runs.map(r => r.t));
-          const miss = trackList.filter(t => t.Level === state.missing && !have.has(t));
-          return miss.length ? `<div class="missing">
-            <div class="missing-head"><b>Missing level ${state.missing}s</b><span>${miss.length} tracks, hardest first</span></div>
-            <ul>${miss.map(t => `<li><a class="lnk" href="#${t.slug}">${esc(t.Track)}</a><span>${t.Rating.toFixed(2)}</span></li>`).join("")}</ul>
-          </div>` : "";
-        })() : ""}
+        ${eloByLevel(p)}
       </section>
-      <div class="card"><div class="scroll"><table>
+      <div class="toggles p-tools">
+        <button class="chipbtn" id="tg-progress" aria-pressed="${prefs.progress}">Level progress</button>
+        <button class="chipbtn" id="tg-zero" aria-pressed="${state.zeroOnly}">0f only</button>
+      </div>
+      ${prefs.progress ? levelProgress(p) : ""}
+      <div class="card"><div class="scroll"><table class="t-player">
         <thead><tr><th>Track</th><th class="num">Faults</th><th class="num hide-sm">Time</th><th class="num">Place</th><th class="num">Points</th></tr></thead>
-        <tbody>${body || `<tr><td colspan="5" class="empty">No runs match &ldquo;${esc(state.q)}&rdquo;.</td></tr>`}</tbody>
+        <tbody>${body || `<tr><td colspan="5" class="empty">${state.q ? `No ${state.zeroOnly ? "0f " : ""}runs match &ldquo;${esc(state.q)}&rdquo;.` : "No 0f runs yet."}</td></tr>`}</tbody>
       </table></div></div>`;
   }
 
-  // Motion: count-ups and row reveals run only when a view is first opened, never on a search keystroke or toggle
+  // Rank guide. Elo ranks: each division's starting Elo, the pass the rank needs (ranks are capped by the hardest level passed),
+  // and how many ranked players hold it. Gem ranks: each division's starting points and how many players hold it
+  const infoBtn = kind => `<button class="info" data-ranks="${kind}" aria-label="About ${kind === "gems" ? "points" : "Elo"} ranks" title="About ranks">i</button>`;
+  function rankGuide(kind) {
+    const T = S.rank_tiers, rows = [];
+    if (kind === "elo") {
+      const R = S.ranks, elo = l => fmtInt(Math.max(0, NinjaScore.roundEven(NinjaScore.interp(l, S.elo_curve))));
+      const held = new Map();
+      players.forEach(p => { if (p.Ranked) { const b = p.Rank.replace(/ (I|II|III)$/, ""); held.set(b, (held.get(b) || 0) + 1); } });
+      R.slice(0, -1).forEach(([r, start], i) => {   // The top rank stays off the guide
+        const next = R[i + 1][1];
+        const starts = T.map((_, k) => elo(start + k * (next - start) / T.length));
+        rows.push({ chip: rankChip(r), starts, need: `Level ${Math.floor(start + 1e-9)}`, n: held.get(r) || 0 });
+      });
+    } else {
+      const groups = new Map();
+      S.points_ranks.forEach(([d, start]) => { const b = d.replace(/ (I|II|III)$/, ""); if (!groups.has(b)) groups.set(b, []); groups.get(b).push(fmtInt(start)); });
+      const held = new Map();
+      players.forEach(p => { const b = p.PointsRank.replace(/ (I|II|III)$/, ""); held.set(b, (held.get(b) || 0) + 1); });
+      groups.forEach((starts, b) => rows.push({ chip: gemChip(b), starts: starts.length > 1 ? starts : [starts[0], "&ndash;", "&ndash;"], n: held.get(b) || 0 }));   // Obsidian has one gate, no divisions
+    }
+    rows.reverse();   // Top rank first
+    const elo = kind === "elo";
+    return `
+      <div class="guide-head"><div><h2 id="guide-title">${elo ? "Elo ranks" : "Points ranks"}</h2><span class="guide-sub">${elo ? "Elo" : "Points"} each division starts at</span></div><button class="btn" id="guide-close">Close</button></div>
+      <div class="scroll"><table class="guide">
+        <thead><tr><th>Rank</th>${T.map(t => `<th class="num">${t}</th>`).join("")}${elo ? '<th class="num hide-sm">Must pass</th>' : ""}<th class="num">Players</th></tr></thead>
+        <tbody>${rows.map(r => `<tr><td>${r.chip}</td>${r.starts.map(v => `<td class="num">${v}</td>`).join("")}${elo ? `<td class="num hide-sm">${r.need}</td>` : ""}<td class="num">${fmtInt(r.n)}</td></tr>`).join("")}</tbody>
+      </table></div>`;
+  }
+  const guide = document.createElement("dialog");
+  guide.className = "guide-dlg"; guide.setAttribute("aria-labelledby", "guide-title");
+  document.body.appendChild(guide);
+  guide.addEventListener("click", e => { if (e.target === guide || e.target.id === "guide-close") guide.close(); });
+  document.addEventListener("click", e => {
+    const b = e.target.closest("button.info");
+    if (!b) return;
+    e.preventDefault(); e.stopPropagation();
+    guide.innerHTML = rankGuide(b.dataset.ranks);
+    guide.showModal();
+  }, true);
+
+  // Animations: numbers counting up and rows fading in. They only play when you first open a page, not every time you type or click.
+  // People who've asked their device for reduced motion don't get them at all
   const calm = matchMedia("(prefers-reduced-motion: reduce)");
   function countUp(root) {
     if (calm.matches) return;
@@ -1124,7 +1420,7 @@ var NinjaScore = (() => {
       requestAnimationFrame(tick);
     });
   }
-  // Rows fade up as they scroll into view. Not animation-timeline: view(), because each table's .scroll wrapper is the scroller it would track
+  // Table rows fade in as they scroll into view
   const io = "IntersectionObserver" in window ? new IntersectionObserver(entries => {
     let i = 0;
     entries.forEach(e => {
@@ -1141,38 +1437,81 @@ var NinjaScore = (() => {
     root.querySelectorAll("tbody tr").forEach(r => { if (!r.querySelector(".empty")) { r.classList.add("rv"); io.observe(r); } });
   }
 
-  // Router
+  // Which page to show. It's picked by the end of the web address (the part after #): #players, #points, #runs, #tracks,
+  // #calc, or a player's or track's own name. Clicking a link changes it, and the page redraws to match
   function current() {
     const h = location.hash.slice(1);
-    if (h === "runs" || h === "tracks" || h === "players") return { view: h };
+    if (["runs", "tracks", "players", "points"].includes(h)) return { view: h };
     if (h === "calc" || h.startsWith("calc:")) return { view: "calc", t: trackBySlug.get(h.slice(5)) };
     if (trackBySlug.has(h)) return { view: "track", t: trackBySlug.get(h) };
     if (playerBySlug.has(h)) return { view: "player", p: playerBySlug.get(h) };
     return { view: "players" };
   }
   let prevKey = null;
+  const navOf = v => v === "points" ? "players" : v;   // Both boards sit under Players
   function render() {
     const c = current();
     const key = location.hash;
-    if (["players", "runs", "tracks"].includes(c.view)) lastList = c.view;
-    document.querySelectorAll(".seg a").forEach(a => a.setAttribute("aria-current", a.dataset.view === (["track", "player"].includes(c.view) ? lastList : c.view) ? "page" : "false"));
-    const html = c.view === "runs" ? viewRuns() : c.view === "tracks" ? viewTracks() : c.view === "track" ? viewTrack(c.t) : c.view === "player" ? viewPlayer(c.p) : c.view === "calc" ? viewCalc(c.t) : viewPlayers();
+    if (["players", "points", "runs", "tracks"].includes(c.view)) lastList = c.view;
+    document.querySelectorAll(".seg a").forEach(a => a.setAttribute("aria-current", a.dataset.view === navOf(["track", "player"].includes(c.view) ? lastList : c.view) ? "page" : "false"));
+    const html = c.view === "runs" ? viewRuns() : c.view === "tracks" ? viewTracks() : c.view === "track" ? viewTrack(c.t) : c.view === "player" ? viewPlayer(c.p) : c.view === "calc" ? viewCalc(c.t) : viewPlayers(c.view === "points");
     const app = $("#app"), entering = key !== prevKey;
     app.innerHTML = html;
     app.classList.toggle("enter", entering && !calm.matches);
     if (entering) { revealRows(app); countUp(app); }
-    const q = $("#q");
-    q.placeholder = c.view === "track" ? "Search players on this track" : c.view === "player" ? "Search this player's tracks" : c.view === "tracks" ? "Search tracks" : "Search players or tracks";
     if (key !== prevKey && prevKey !== null) window.scrollTo({ top: 0 });
     prevKey = key;
   }
 
-  $("#q").addEventListener("input", e => { state.q = e.target.value.trim().toLowerCase(); state.shown = PAGE; render(); });
+  // Search: filters the page as you type, and lists the players and tracks that match (names starting with it first) to jump to
+  const qBox = $("#q"), qPop = $("#q-pop");
+  const hits = (items, name) => {
+    const q = state.q, m = items.filter(x => name(x).toLowerCase().includes(q));
+    return m.filter(x => name(x).toLowerCase().startsWith(q)).concat(m.filter(x => !name(x).toLowerCase().startsWith(q))).slice(0, 6);
+  };
+  function searchPop() {
+    const open = !!state.q && document.activeElement === qBox;
+    qPop.hidden = !open; qBox.setAttribute("aria-expanded", open);
+    if (!open) return;
+    const ps = hits(players, p => p.Player), ts = hits(trackList, t => t.Track);
+    qPop.innerHTML = (ps.length ? `<div class="qp-h">Players</div>${ps.map(p => `<a role="option" href="#${p.slug}"><span>${esc(p.Player)}</span><small>${fmtInt(p.Elo)} Elo</small></a>`).join("")}` : "")
+      + (ts.length ? `<div class="qp-h">Tracks</div>${ts.map(t => `<a role="option" href="#${t.slug}"><span>${esc(t.Track)}</span><small>Level ${t.Level} &middot; ${t.Rating.toFixed(2)}</small></a>`).join("")}` : "")
+      || `<div class="qp-none">No players or tracks match</div>`;
+  }
+  qBox.addEventListener("input", e => { state.q = e.target.value.trim().toLowerCase(); state.shown = PAGE; render(); searchPop(); });
+  qBox.addEventListener("focus", searchPop);
+  qBox.addEventListener("keydown", e => {
+    const first = qPop.querySelector("a");
+    if (e.key === "Enter" && first && !qPop.hidden) { e.preventDefault(); location.hash = first.getAttribute("href"); qBox.blur(); }
+    else if (e.key === "ArrowDown" && first && !qPop.hidden) { e.preventDefault(); first.focus(); }
+    else if (e.key === "Escape") { qPop.hidden = true; qBox.setAttribute("aria-expanded", false); }
+  });
+  qPop.addEventListener("keydown", e => {
+    const links = [...qPop.querySelectorAll("a")], i = links.indexOf(document.activeElement);
+    if (e.key === "ArrowDown" && i < links.length - 1) { e.preventDefault(); links[i + 1].focus(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); (i > 0 ? links[i - 1] : qBox).focus(); }
+    else if (e.key === "Escape") { qBox.focus(); qPop.hidden = true; }
+  });
+  document.addEventListener("focusin", e => { if (!e.target.closest(".search-box")) { qPop.hidden = true; qBox.setAttribute("aria-expanded", false); } });
+  document.addEventListener("pointerdown", e => { if (!e.target.closest(".search-box")) { qPop.hidden = true; qBox.setAttribute("aria-expanded", false); } });
+
+  // Chart tooltips: any [data-tip] mark, on hover or keyboard focus
+  const tip = document.createElement("div");
+  tip.className = "tip"; tip.hidden = true; document.body.appendChild(tip);
+  const showTip = el => {
+    tip.innerHTML = el.dataset.tip; tip.hidden = false;
+    const r = (el.querySelector(":scope > i") || el).getBoundingClientRect(), w = tip.offsetWidth;
+    tip.style.left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), innerWidth - w - 8) + "px";
+    tip.style.top = Math.max(8, r.top - tip.offsetHeight - 8) + "px";
+  };
+  ["pointerover", "focusin"].forEach(ev => document.addEventListener(ev, e => { const el = e.target.closest?.("[data-tip]"); if (el) showTip(el); else tip.hidden = true; }));
+  ["pointerout", "focusout"].forEach(ev => document.addEventListener(ev, e => { if (e.target.closest?.("[data-tip]")) tip.hidden = true; }));
+  addEventListener("scroll", () => { tip.hidden = true; }, { passive: true });
   window.addEventListener("hashchange", () => {
-    const go = () => { state.q = ""; $("#q").value = ""; state.shown = PAGE; state.missing = null; render(); };
+    const go = () => { state.q = ""; $("#q").value = ""; state.shown = PAGE; state.missing = null; tip.hidden = true; render(); searchPop(); };
     document.startViewTransition && !calm.matches ? document.startViewTransition(go) : go();
   });
-  // Calculator inputs only redraw the result, so typing keeps its place
+  // Typing in the calculator only redraws the result box, not the whole page, so your typing isn't interrupted
   $("#app").addEventListener("input", e => {
     const id = e.target.id, c = state.calc;
     if (id === "calc-track") { c.trackText = e.target.value; c.track = findTrack(e.target.value); }
@@ -1194,9 +1533,8 @@ var NinjaScore = (() => {
       $("#calc-out").innerHTML = calcResult();
       return;
     }
-    if (b.id === "tg-unranked") { state.unranked = !state.unranked; state.shown = PAGE; savePrefs(); render(); }
-    else if (b.id === "tg-raw") { state.raw = !state.raw; state.shown = PAGE; render(); $("#tg-raw")?.focus(); }
-    else if (b.id === "tg-missing") { prefs.missing = !prefs.missing; state.missing = null; savePrefs(); render(); $("#tg-missing")?.focus(); }
+    if (b.id === "tg-zero") { state.zeroOnly = !state.zeroOnly; state.shown = PAGE; render(); $("#tg-zero")?.focus(); }
+    else if (b.id === "tg-progress") { prefs.progress = !prefs.progress; state.missing = null; savePrefs(); render(); $("#tg-progress")?.focus(); }
     else if (b.id === "more") { state.shown += PAGE; render(); }
     else if (b.id === "all") { state.shown = Infinity; render(); }
     else if (b.dataset.missing) {
@@ -1205,205 +1543,20 @@ var NinjaScore = (() => {
       render();
       $(`button[data-missing="${l}"]`)?.focus();
     }
+    else if (b.dataset.tlevel) { const l = +b.dataset.tlevel, L = state.totalLevels; L.has(l) ? L.delete(l) : L.add(l); state.shown = PAGE; render(); $(`[data-tlevel="${l}"]`)?.focus(); }
+    else if (b.dataset.sort) {
+      const k = b.dataset.sort, t = state.totalSort;
+      state.totalSort = { key: k, dir: t.key === k ? -t.dir : -1 };   // New column: highest first; same column: flip
+      state.shown = PAGE; render(); $(`[data-sort="${k}"]`)?.focus();
+    }
     else if (b.dataset.level) { const l = +b.dataset.level; state.levels.has(l) ? state.levels.delete(l) : state.levels.add(l); render(); }
   });
 
 
-  // Settings panel: a few numbers, each driving one or more of the Python constants.
-  // Step rows set every level in their range; the 0f bonus and fault effect rows scale their whole table, so its shape by level is kept
   const tidy = v => +v.toFixed(6);
-  // A median pass's points at a level, from the settings as typed (so notes move before the board finishes rescoring)
-  const pts = l => {
-    const v = NinjaScore.worthFn(S)(l);
-    return v >= 100 ? fmtInt(Math.round(v)) : v >= 1 ? v.toFixed(1) : v.toPrecision(2);
-  };
-  const steps = (label, pick, note) => ({ label, note, unit: "×", step: 0.5, min: 1.01, out: v => `${tidy(v)}×`,
-    get: src => src.level_steps.find(pick)[1],
-    set: v => S.level_steps.forEach(r => { if (pick(r)) r[1] = v; }) });
-  const scaled = (key, ref, label, o) => {
-    const base = NinjaScore.interp(ref, DEF[key]);
-    return { label, ...o, get: src => NinjaScore.interp(ref, src[key]),
-             set: v => { S[key] = DEF[key].map(([x, y]) => [x, tidy(y * v / base)]); } };
-  };
-  const scalar = (key, label, o) => ({ label, ...o, get: src => src[key], set: v => { S[key] = v; } });
-  const row = (key, i, label, o) => ({ label, ...o, get: src => src[key][i][1], set: v => { S[key][i][1] = v; } });   // One row of a table
-  const capMax = Math.floor(99 * NinjaScore.interp(7, DEF.fault_cap) / Math.max(...DEF.fault_cap.map(r => r[1])));   // Keeps every level's cap under 100%
-  const GROUPS = [
-    { title: "Points per level", hint: "A median pass, as a multiple of a median pass one level down. A median level 8 pass is pinned at 1,000 points, so each step moves the levels on the far side of 8 from it", rows: [
-      ...DEF.level_steps.map(([l], i) => row("level_steps", i, `Level ${l + 1}`, { unit: "×", step: 0.1, min: 1.01, out: v => `${tidy(v)}× level ${l}`,
-        note: () => `A median level ${l + 1} pass is worth ${pts(l + 1)}${l + 1 === 10 ? `. Also the yardstick for top players' Elo` : ""}` })),
-      scalar("top_rating_spread", "Level 9 decimals count", { unit: "%", pct: true, step: 5, min: 0, max: 100, out: v => `${tidy(v * 100)}% of a 9.x rating's decimals`,
-        note: () => { const s = S.top_rating_spread, w = NinjaScore.worthFn(S); return `From level 9 up, only this share of a rating's decimals counts: a 9.5 like Claymore scores as ${tidy(9 + 0.5 * s).toFixed(3)}, worth ${pts(9 + 0.5 * s)}, and each 0.1 adds ${((w(9 + 0.1 * s) / w(9) - 1) * 100).toFixed(0)}%`; } }) ] },
-    { title: "0f runs", hint: "A 0f run counts as if its track were rated this many levels higher, by track level (straight lines in between)", rows: [
-      ...DEF.zero_fault_bonus.map(([l], i) => row("zero_fault_bonus", i, `0f bonus, level ${l}`, { unit: "levels", step: 0.05, min: 0.01, out: v => `+${tidy(v)} levels` })),
-      scalar("low_fault_share", "1f keeps", { unit: "% of 0f", pct: true, step: 5, min: 0, max: 100, out: v => `${tidy(v * 100)}% of the 0f bonus`,
-        note: () => `A 0f is special: 1f drops to this share of the bonus. Lower makes the cliff from 0f to 1f steeper` }),
-      scalar("low_fault_reach", "Low-fault bonus to", { unit: "% med", pct: true, step: 1, min: 0.1, out: v => `${tidy(v * 100)}% of the track's median faults`,
-        note: () => { const t = S.low_fault_reach * 100, k = tidy(S.low_fault_share * 100); return `The 1f share fades evenly to nothing at this share of the track's median faults: on a 100f-median track, 1f keeps ${tidy(k * (1 - 1 / t))}% of the 0f bonus, ${tidy(t / 2)}f ${tidy(k / 2)}% and ${tidy(t)}f none`; } }) ] },
-    { title: "Faults", hint: "", rows: [
-      scaled("fault_cap", 7, "Fault effect", { unit: "±%", pct: true, step: 1, min: 0, max: capMax, out: v => `±${tidy(v * 100)}% at level 7`,
-        note: () => `Most faults can add or take away, as a share of a run's points. Shown at level 7; level 1 gets ±${tidy(S.fault_cap[0][1] * 100)}%, level 9 ±${tidy(NinjaScore.interp(9, S.fault_cap) * 100)}%` }),
-      scalar("fault_steepness", "Steepness", { unit: "", step: 0.1, min: 0.01, out: v => `${tidy(v)}`,
-        note: () => { const k = S.fault_steepness, a = Math.tanh(k * Math.log(2)) * 100, b = Math.tanh(k * Math.log(4)) * 100;
-          return `How much of the fault effect a run gets for being cleaner than the median. Half the median faults gets ${a.toFixed(0)}% of it and a quarter gets ${b.toFixed(0)}%; double and four times the median lose the same. Lower saves the effect for very clean runs, higher gives most of it to any run clearly under the median`; } }) ] },
-    { title: "Player score", hint: "A player's runs are added up best first", rows: [
-      scalar("run_decay", "Each run counts", { unit: "% of last", pct: true, step: 1, min: 1, max: 100, out: v => `${tidy(v * 100)}% of the run above it`,
-        note: () => { const d = S.run_decay; return `Of the run above it: the 2nd best counts ${tidy(d * 100)}%, the 5th ${tidy(d ** 4 * 100).toFixed(0)}%, the 10th ${tidy(d ** 9 * 100).toFixed(0)}%`; } }),
-      scalar("max_counted_runs", "Runs counted", { unit: "0 = all", int: true, step: 1, min: 0, out: v => v ? `best ${v}` : "all" }),
-      scalar("min_runs", "Runs to be ranked", { unit: "runs", int: true, step: 1, min: 1, out: v => `${v} runs` }) ] },
-    { title: "Raw points", hint: "A second score: every run added up, no decay and no minimum runs, on a flatter curve so playing more tracks keeps counting", rows: [
-      scalar("raw_points_step", "Each level", { unit: "×", step: 0.1, min: 1.01, out: v => `${tidy(v)}× the level below`,
-        note: () => { const s = S.raw_points_step, b = S.raw_points_at_level_1, f = l => +(b * s ** (l - 1)).toPrecision(3);
-          return `A median pass is worth ${f(1)} at level 1, ${f(5)} at level 5, ${f(8)} at level 8 and ${f(10)} at level 10`; } }) ] },
-  ];
-  const FIELDS = GROUPS.flatMap(g => g.rows);
-  FIELDS.forEach((f, i) => { f.id = "set-" + i; });
-  const fieldById = new Map(FIELDS.map(f => [f.id, f]));
-  const toInput = f => String(tidy(f.pct ? f.get(S) * 100 : f.get(S)));
-  const changed = f => Math.abs(f.get(S) - f.get(DEF)) > 1e-9;
-  const isCustom = () => EDITABLE.some(k => JSON.stringify(S[k]) !== JSON.stringify(DEF[k]));
-
-  function buildPanel() {
-    $("#set-groups").innerHTML = GROUPS.map((g, gi) => `
-      <section class="set-group" data-group="${gi}">
-        <h3>${esc(g.title)}<span class="dot" hidden></span></h3>
-        ${g.hint ? `<p class="set-hint">${esc(g.hint)}</p>` : ""}
-        <div class="set-body">${g.rows.map(f => `
-          <div class="set-row" data-id="${f.id}">
-            <label for="${f.id}">${esc(f.label)}</label>
-            <input id="${f.id}" type="number" inputmode="decimal" step="${f.step}" min="${f.min}"${f.max != null ? ` max="${f.max}"` : ""} value="${toInput(f)}">
-            <span class="set-unit">${esc(f.unit)}</span>
-            ${f.note ? `<small class="set-sub" data-note="${f.id}"></small>` : ""}
-          </div>`).join("")}
-        </div>
-      </section>`).join("");
-    markPanel();
-  }
-
-  function markPanel() {
-    FIELDS.forEach(f => {
-      $(`.set-row[data-id="${f.id}"]`).classList.toggle("changed", changed(f));
-      if (f.note) $(`[data-note="${f.id}"]`).textContent = f.note();
-    });
-    GROUPS.forEach((g, gi) => { $(`.set-group[data-group="${gi}"] .dot`).hidden = !g.rows.some(changed); });
-    const custom = isCustom();
-    $("#set-status").innerHTML = custom
-      ? "<b>Custom scoring.</b> Only on this device: the published board uses the defaults. Export to share these or make them the defaults."
-      : "Default scoring, as published. Change any number and the whole board rescores.";
-    $("#custom-tag").hidden = !custom;
-    $("#set-dot").hidden = !custom;
-  }
-
-  // Reads one input: a number in range (whole for counts), else the field is flagged and the setting left as it was
-  function readField(f, input) {
-    const raw = input.value.trim(), v = Number(raw);
-    const ok = raw !== "" && Number.isFinite(v) && v >= f.min && (f.max == null || v <= f.max) && (!f.int || Number.isInteger(v));
-    input.classList.toggle("bad", !ok);
-    if (ok) f.set(f.pct ? tidy(v / 100) : v);
-    return ok;
-  }
-
-  let timer = 0;
-  const saveSettings = () => {
-    try {
-      if (isCustom()) localStorage.setItem(SAVE_KEY, JSON.stringify(Object.fromEntries(EDITABLE.map(k => [k, S[k]]))));
-      else localStorage.removeItem(SAVE_KEY);
-    } catch (e) {}
-  };
-  const applySettings = () => { rescore(); renderStats(); markPanel(); render(); saveSettings(); };
-  $("#set-groups").addEventListener("input", e => {
-    const f = fieldById.get(e.target.id);
-    if (!f || !readField(f, e.target)) return;
-    clearTimeout(timer);
-    markPanel();   // Notes and markers follow the typing straight away
-    timer = setTimeout(applySettings, 150);   // Rescoring every run takes a moment, so wait for typing to pause
-  });
-  $("#set-groups").addEventListener("change", e => {   // Leaving a field with an invalid entry puts back the value in use
-    const f = fieldById.get(e.target.id);
-    if (f && e.target.classList.contains("bad")) { e.target.value = toInput(f); e.target.classList.remove("bad"); }
-  });
-  $("#set-reset").addEventListener("click", () => {
-    EDITABLE.forEach(k => { S[k] = clone(DEF[k]); });
-    FIELDS.forEach(f => { const el = $("#" + f.id); el.value = toInput(f); el.classList.remove("bad"); });
-    applySettings();
-  });
-
-  // Copy as Python: the editable constants as points_calculator.py writes them, to paste over the ones there
-  const pythonSettings = () => ["# Scoring settings from the leaderboard page: paste over the matching constants in points_calculator.py"]
-    .concat(EDITABLE.map(k => {
-      const v = S[k];
-      return Array.isArray(v)
-        ? `${k.toUpperCase()} = [\n${v.map(([x, y]) => `    (${x}, ${tidy(y)}),`).join("\n")}\n]`
-        : `${k.toUpperCase()} = ${tidy(v)}`;
-    })).join("\n") + "\n";
-
-  // Export: every setting as plain text to paste into a message, changed ones with their default beside them
-  const exportText = () => {
-    const custom = isCustom();
-    const lines = [`Ninja Points scoring settings (${custom ? "custom" : "published defaults"})`, ""];
-    GROUPS.forEach(g => {
-      lines.push(g.title);
-      g.rows.forEach(f => lines.push(`  ${f.label}: ${f.out(f.get(S))}${changed(f) ? `  (default ${f.out(f.get(DEF))})` : ""}`));
-      lines.push("");
-    });
-    lines.push("Median pass worth",
-      `  Level 1 ${pts(1)}, level 4 ${pts(4)}, level 7 ${pts(7)}, level 8 ${pts(8)}, level 9 ${pts(9)}, a 9.5 ${pts(9 + 0.5 * S.top_rating_spread)}, level 10 ${pts(10)}`, "",
-      "Fixed (not in the panel)",
-      `  Fault median prior: ${tidy(DEF.fault_median_prior_runs)} runs`,
-      `  Raw points at level 1: ${tidy(DEF.raw_points_at_level_1)}`,
-      `  Time shift: up to ${tidy(DEF.time_shift_max)} levels`);
-    return lines.join("\n");
-  };
-  const copyText = async (btn, text, label) => {
-    let done = false;
-    try { await navigator.clipboard.writeText(text); done = true; } catch (err) {
-      const ta = document.createElement("textarea");
-      ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
-      document.body.appendChild(ta); ta.select();
-      try { done = document.execCommand("copy"); } catch (err2) {}
-      ta.remove();
-    }
-    btn.textContent = done ? "Copied" : "Copy failed: select the text instead";
-    setTimeout(() => { btn.textContent = label; }, 1600);
-  };
-  const dlg = $("#export");
-  $("#set-export").addEventListener("click", () => {
-    $("#export-text").value = exportText();
-    dlg.showModal();
-    $("#export-text").select();
-  });
-  $("#export-close").addEventListener("click", () => dlg.close());
-  dlg.addEventListener("click", e => { if (e.target === dlg) dlg.close(); });   // A click on the backdrop closes it
-  $("#export-copy").addEventListener("click", e => copyText(e.currentTarget, $("#export-text").value, "Copy text"));
-  $("#export-py").addEventListener("click", e => copyText(e.currentTarget, pythonSettings(), "Copy as Python"));
-
-  // Narrow screens: the panel is a drawer. Wide screens: the Scoring button shows or hides the column, remembered on this device
-  const narrow = matchMedia("(max-width: 1080px)");
-  const column = show => {
-    prefs.settings = show;
-    $("#layout").classList.toggle("set-hidden", !show);
-    if (!narrow.matches) $("#set-open").setAttribute("aria-expanded", show);
-  };
-  column(prefs.settings);
-  narrow.addEventListener("change", () => { if (narrow.matches) drawer(false); else { drawer(false); column(prefs.settings); } });
-  const drawer = open => {
-    $("#settings").classList.toggle("open", open);
-    $("#scrim").hidden = !open;
-    $("#set-open").setAttribute("aria-expanded", open);
-    if (open) $("#set-close").focus();
-    else if ($("#settings").contains(document.activeElement)) $("#set-open").focus();
-  };
-  $("#set-open").addEventListener("click", () => {
-    if (narrow.matches) drawer(!$("#settings").classList.contains("open"));
-    else { column(!prefs.settings); savePrefs(); }
-  });
-  $("#set-close").addEventListener("click", () => drawer(false));
-  $("#scrim").addEventListener("click", () => drawer(false));
-  document.addEventListener("keydown", e => { if (e.key === "Escape" && $("#settings").classList.contains("open")) drawer(false); });
 
   rescore();
   renderStats();
-  buildPanel();
   render();
   countUp($("#stats"));
 })();
