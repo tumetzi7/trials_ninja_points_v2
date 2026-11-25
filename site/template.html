@@ -254,10 +254,12 @@ table.t-grid { width: auto; border-collapse: separate; border-spacing: 0; }
 .t-grid thead .g-t { z-index: 3; background: var(--surface-2); vertical-align: bottom; }
 .t-grid thead .g-n { vertical-align: bottom; }
 .g-rt { font-family: var(--font-data); font-size: 13px; color: var(--muted); }
-.t-grid th.g-p { padding: 8px 6px 6px; width: 112px; min-width: 112px; max-width: 112px; vertical-align: bottom; text-align: center; border-left: 1px solid var(--line); }
+.t-grid tbody tr.g-div td.g-p { font-family: var(--font-body); color: var(--fg); letter-spacing: 0; }
+.t-grid tbody tr.g-div td.g-n { font-family: var(--font-body); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.t-grid .g-p { padding: 8px 6px 6px; width: 112px; min-width: 112px; max-width: 112px; vertical-align: bottom; text-align: center; border-left: 1px solid var(--line); }
 .g-p a { display: block; color: var(--fg); text-decoration: none; text-transform: none; letter-spacing: 0; font-size: 12.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .g-p a:hover { color: var(--accent); }
-.g-p small { display: block; margin-top: 2px; font-family: var(--font-data); font-size: 11px; color: var(--muted); letter-spacing: 0; }
+.g-p small { display: block; margin-top: 2px; font-family: var(--font-data); font-size: 11px; font-weight: 500; color: var(--muted); letter-spacing: 0; }
 .t-grid td.g { width: 112px; min-width: 112px; padding: 0; height: 30px; text-align: center; border-left: 1px solid var(--line); font-family: var(--font-data); font-size: 12px; font-variant-numeric: tabular-nums; outline: none; }
 .t-grid td.g.pass { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
 .t-grid td.g.good { background: color-mix(in srgb, var(--accent) 38%, var(--surface)); }
@@ -1227,26 +1229,32 @@ var NinjaScore = (() => {
       </table></div></div>`;
   }
 
-  // Pass grid: every full level 8 and 9 track (easiest at the top) against every player with a level 8+ pass (highest effective level
-  // on the left), like the rating sheet. A cell shows the player's faults there, shaded by how good the run is: a 0f, better than the
+  // Pass grid: every full level 8 and 9 track (easiest at the top) against every player with a level 8+ pass (most passes on the
+  // left), like the rating sheet. A cell shows the player's faults there, shaded by how good the run is: a 0f, better than the
   // track's median faults, or a pass. Search narrows the players, or the tracks if no player matches
   const tracksSeg = grid => `<nav class="seg board-seg" aria-label="Track view">
           <a href="#tracks" aria-current="${grid ? "false" : "page"}">List</a><a href="#grid" aria-current="${grid ? "page" : "false"}">Pass grid</a></nav>`;
   function viewGrid() {
     let rows = trackList.filter(t => t.Level >= 8).sort((a, b) => a.Rating - b.Rating || a.Track.localeCompare(b.Track));
-    let cols = players.filter(p => p.runs.some(r => r.Level >= 8)).sort((a, b) => b.Level - a.Level);
+    // Most level 8+ passes first; ties go to more level 9s, then the higher effective level
+    const n8 = p => p.runs.filter(r => r.Level >= 8 && r.t.Level >= 8).length, n9 = p => p.runs.filter(r => r.Level >= 9).length;
+    let cols = players.filter(p => p.runs.some(r => r.Level >= 8)).sort((a, b) => n8(b) - n8(a) || n9(b) - n9(a) || b.Level - a.Level);
     if (state.q) {
       const pc = cols.filter(p => match(p.Player)), tr = rows.filter(t => match(t.Track));
       if (pc.length) cols = pc; else if (tr.length) rows = tr; else { cols = []; rows = []; }
     }
     const runOf = new Map();
     cols.forEach(p => p.runs.forEach(r => { if (r.Level >= 8) runOf.set(r.t.slug + "|" + p.slug, r); }));
-    const rowSet = new Set(rows), passed = p => p.runs.filter(r => rowSet.has(r.t)).length;
-    const head = `<tr><th class="g-t">Track &ndash; rating</th>${cols.map(p =>
-      `<th class="g-p"><a href="#${p.slug}" title="${esc(p.Player)}: level ${p.Level.toFixed(2)}, ${passed(p)} of ${rows.length} passed">${esc(p.Player)}</a><small>${p.Level.toFixed(2)}</small></th>`).join("")}<th class="num g-n">Passes</th></tr>`;
+    // Each level gets its own name row with every player's passes at that level, like "12/43". The first level's sits in the
+    // sticky header, the others at the top of their section
+    const rowSet = new Set(rows), levels = [...new Set(rows.map(t => t.Level))];
+    const ofLevel = l => rows.filter(t => t.Level === l).length;
+    const passed = (p, l) => p.runs.filter(r => r.Level === l && rowSet.has(r.t)).length;
+    const names = (l, tag) => cols.map(p => `<${tag} class="g-p"><a href="#${p.slug}" title="${esc(p.Player)}: ${passed(p, l)} of ${ofLevel(l)} level ${l}s passed">${esc(p.Player)}</a><small>${passed(p, l)}/${ofLevel(l)}</small></${tag}>`).join("");
+    const head = `<tr><th class="g-t">Level ${levels[0] ?? ""} &middot; track &ndash; rating</th>${names(levels[0], "th")}<th class="num g-n">Passes</th></tr>`;
     let level = null;
     const body = rows.map(t => {
-      const div = t.Level !== level ? `<tr class="g-div"><th class="g-t">Level ${t.Level}</th><td colspan="${cols.length + 1}"></td></tr>` : "";
+      const div = level !== null && t.Level !== level ? `<tr class="g-div"><th class="g-t">Level ${t.Level}</th>${names(t.Level, "td")}<td class="num g-n">Passes</td></tr>` : "";
       level = t.Level;
       let n = 0;
       const cells = cols.map(p => {
@@ -1265,7 +1273,7 @@ var NinjaScore = (() => {
         <div><h2>Pass grid</h2></div>
         <div class="toggles">${tracksSeg(true)}</div>
       </div>
-      <p class="note g-note">Full level 8 and 9 tracks, easiest at the top. Players with a level 8+ pass, highest effective level on the left. Numbers are faults.</p>
+      <p class="note g-note">Full level 8 and 9 tracks, easiest at the top. Players with a level 8+ pass, most passes on the left, with how many of each level's tracks they've passed. Numbers are faults.</p>
       ${legend}
       ${rows.length && cols.length ? `<div class="card"><div class="g-wrap"><table class="t-grid">
         <thead>${head}</thead>
