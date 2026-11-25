@@ -651,8 +651,9 @@ tr.r-Obsidian .meter i { background: linear-gradient(90deg, #c4a8ff, #7c3aed); }
 button.info {
   display: inline-grid; place-items: center; width: 16px; height: 16px; margin-left: 4px; padding: 0; vertical-align: 1px;
   border: 1.5px solid color-mix(in srgb, var(--fg) 45%, transparent); border-radius: 50%; background: var(--surface-2); color: color-mix(in srgb, var(--fg) 80%, transparent);
-  font: italic 700 10.5px/1 Georgia, serif; letter-spacing: 0; text-transform: none; cursor: pointer;
+  cursor: pointer;
 }
+button.info svg { display: block; width: 8px; height: 8px; fill: currentColor; }
 button.info:hover, button.info:focus-visible { color: var(--accent); border-color: var(--accent); outline: none; }
 .guide-dlg {
   width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 0 0 8px; color: var(--fg); overflow: auto;
@@ -1541,7 +1542,7 @@ var NinjaScore = (() => {
 
   // Rank guide. Elo ranks: each division's starting Elo, the pass the rank needs (ranks are capped by the hardest level passed),
   // and how many ranked players hold it. Gem ranks: each division's starting points and how many players hold it
-  const infoBtn = kind => `<button class="info" data-ranks="${kind}" aria-label="About ${kind === "gems" ? "points" : "Elo"} ranks" title="About ranks">i</button>`;
+  const infoBtn = kind => `<button class="info" data-ranks="${kind}" aria-label="About ${kind === "gems" ? "points" : "Elo"} ranks" title="About ranks"><svg viewBox="0 0 8 8" aria-hidden="true"><circle cx="4" cy="1.4" r="1.05"/><rect x="3.1" y="3.1" width="1.8" height="4.4" rx=".9"/></svg></button>`;
   function rankGuide(kind) {
     const T = S.rank_tiers, rows = [];
     if (kind === "elo") {
