@@ -250,15 +250,15 @@ main { padding-block: 18px 56px; min-width: 0; }
 .g-wrap { overflow: auto; max-height: calc(100vh - 140px); }
 table.t-grid { width: auto; border-collapse: separate; border-spacing: 0; }
 .t-grid thead th { position: sticky; top: 0; z-index: 2; }
-.t-grid .g-t { position: sticky; left: 0; z-index: 1; background: var(--surface); min-width: 190px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid var(--line); }
+.t-grid .g-t { position: sticky; left: 0; z-index: 1; background: var(--surface); min-width: 240px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid var(--line); }
 .t-grid thead .g-t { z-index: 3; background: var(--surface-2); vertical-align: bottom; }
-.t-grid thead .g-r, .t-grid thead .g-n { vertical-align: bottom; }
-.t-grid th.g-p { padding: 8px 0 6px; width: 34px; min-width: 34px; max-width: 34px; vertical-align: bottom; text-align: center; border-left: 1px solid var(--line); }
-.g-p a { display: block; margin: 0 auto; color: var(--fg); text-decoration: none; text-transform: none; letter-spacing: 0; font-size: 12px; font-weight: 600; }
-.g-p a span { display: inline-block; writing-mode: vertical-rl; transform: rotate(180deg); max-height: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.t-grid thead .g-n { vertical-align: bottom; }
+.g-rt { font-family: var(--font-data); font-size: 13px; color: var(--muted); }
+.t-grid th.g-p { padding: 8px 6px 6px; width: 112px; min-width: 112px; max-width: 112px; vertical-align: bottom; text-align: center; border-left: 1px solid var(--line); }
+.g-p a { display: block; color: var(--fg); text-decoration: none; text-transform: none; letter-spacing: 0; font-size: 12.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .g-p a:hover { color: var(--accent); }
-.g-p small { display: block; margin-top: 4px; font-family: var(--font-data); font-size: 9.5px; color: var(--muted); letter-spacing: 0; }
-.t-grid td.g { width: 34px; min-width: 34px; padding: 0; height: 28px; text-align: center; border-left: 1px solid var(--line); font-family: var(--font-data); font-size: 12px; font-variant-numeric: tabular-nums; outline: none; }
+.g-p small { display: block; margin-top: 2px; font-family: var(--font-data); font-size: 11px; color: var(--muted); letter-spacing: 0; }
+.t-grid td.g { width: 112px; min-width: 112px; padding: 0; height: 30px; text-align: center; border-left: 1px solid var(--line); font-family: var(--font-data); font-size: 12px; font-variant-numeric: tabular-nums; outline: none; }
 .t-grid td.g.pass { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
 .t-grid td.g.good { background: color-mix(in srgb, var(--accent) 38%, var(--surface)); }
 .t-grid td.g.zero { background: var(--accent); color: var(--bg); font-weight: 700; }
@@ -266,12 +266,12 @@ table.t-grid { width: auto; border-collapse: separate; border-spacing: 0; }
 .t-grid tbody tr:hover td.g:not(.pass, .good, .zero) { background: color-mix(in srgb, var(--accent) 5%, var(--surface-2)); }
 .t-grid tbody tr:hover td:first-child { box-shadow: none; }
 .t-grid tbody tr:hover th.g-t { box-shadow: inset 3px 0 0 var(--accent); }
-.t-grid .g-r, .t-grid .g-n { color: var(--muted); padding: 0 10px; font-size: 13px; }
+.t-grid .g-n { color: var(--muted); padding: 0 10px; font-size: 13px; }
 .t-grid .g-n { border-left: 1px solid var(--line); }
 .t-grid tbody tr.g-div th, .t-grid tbody tr.g-div td { background: var(--surface-2); padding-top: 6px; padding-bottom: 6px; font-family: var(--font-display); font-size: 13px; font-weight: 700; letter-spacing: .06em; color: var(--accent); }
 .t-grid tbody th.g-t { font-size: 14px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--fg); padding-top: 0; padding-bottom: 0; }
 .t-grid tbody th, .t-grid tbody td { border-bottom: 1px solid var(--line); }
-@media (max-width: 640px) { .t-grid .g-t { min-width: 130px; max-width: 150px; } .t-grid .g-r { display: none; } }
+@media (max-width: 640px) { .t-grid .g-t { min-width: 170px; max-width: 190px; } .t-grid th.g-p, .t-grid td.g { width: 96px; min-width: 96px; max-width: 96px; } }
 
 /* Compare */
 a.chipbtn { text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
@@ -1242,11 +1242,11 @@ var NinjaScore = (() => {
     const runOf = new Map();
     cols.forEach(p => p.runs.forEach(r => { if (r.Level >= 8) runOf.set(r.t.slug + "|" + p.slug, r); }));
     const rowSet = new Set(rows), passed = p => p.runs.filter(r => rowSet.has(r.t)).length;
-    const head = `<tr><th class="g-t">Track</th><th class="num g-r">Rating</th>${cols.map(p =>
-      `<th class="g-p"><a href="#${p.slug}" title="${esc(p.Player)}: level ${p.Level.toFixed(2)}, ${passed(p)} of ${rows.length} passed"><span>${esc(p.Player)}</span></a><small>${p.Level.toFixed(2)}</small></th>`).join("")}<th class="num g-n">Passes</th></tr>`;
+    const head = `<tr><th class="g-t">Track &ndash; rating</th>${cols.map(p =>
+      `<th class="g-p"><a href="#${p.slug}" title="${esc(p.Player)}: level ${p.Level.toFixed(2)}, ${passed(p)} of ${rows.length} passed">${esc(p.Player)}</a><small>${p.Level.toFixed(2)}</small></th>`).join("")}<th class="num g-n">Passes</th></tr>`;
     let level = null;
     const body = rows.map(t => {
-      const div = t.Level !== level ? `<tr class="g-div"><th class="g-t">Level ${t.Level}</th><td colspan="${cols.length + 2}"></td></tr>` : "";
+      const div = t.Level !== level ? `<tr class="g-div"><th class="g-t">Level ${t.Level}</th><td colspan="${cols.length + 1}"></td></tr>` : "";
       level = t.Level;
       let n = 0;
       const cells = cols.map(p => {
@@ -1257,7 +1257,7 @@ var NinjaScore = (() => {
         const tipText = `<b>${esc(p.Player)}</b> on ${esc(t.Track)}<br>${r.Faults}f &middot; ${fmtTime(r.Time)} &middot; ${ord(r.trackPos)} of ${t.runs.length}`;
         return `<td class="g ${cls}" tabindex="0" data-tip="${esc(tipText)}">${r.Faults}</td>`;
       }).join("");
-      return `${div}<tr><th class="g-t" scope="row"><a class="lnk" href="#${t.slug}" title="${esc(t.Track)}">${esc(t.Track)}</a></th><td class="num g-r">${t.Rating.toFixed(2)}</td>${cells}<td class="num g-n">${n}</td></tr>`;
+      return `${div}<tr><th class="g-t" scope="row"><a class="lnk" href="#${t.slug}" title="${esc(t.Track)}">${esc(t.Track)}</a> <span class="g-rt">&ndash; ${t.Rating.toFixed(2)}</span></th>${cells}<td class="num g-n">${n}</td></tr>`;
     }).join("");
     const legend = `<div class="legend g-legend"><span><i class="sw g-zero"></i>0f</span><span><i class="sw g-good"></i>Under the track's median faults</span><span><i class="sw g-pass"></i>Pass</span></div>`;
     return `
