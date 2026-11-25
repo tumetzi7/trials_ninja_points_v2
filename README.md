@@ -63,7 +63,8 @@ For scale: a median pass on every track in the game is about 1.18M points, and e
 - **Player pages** show both ranks, a chart of where their Elo comes from by level (levels over 1%), split into passes, low-fault runs and 0f runs (hover a section for its exact share), their runs, and **Level progress**: how many tracks they've passed at each level and which are missing.
 - **Top runs** lists every run by points (**0f only** filters it). **Tracks** lists every track, hardest first, with its record holder; each track has a faults-then-time leaderboard.
 - The **search box** filters the page you're on and lists matching players and tracks to jump to.
-- **Calculator** (or "Score a run on this track" on any track page): pick a track, enter faults and a time (blank, or the Median buttons, for the track median), and it shows the points, step by step, and where the run would place on that track and overall.
+- **Calculator** (or "Score a run on this track" on any track page): pick a track, enter faults and a time (blank, or the Median buttons, for the track median), and it shows the points, step by step, and where the run would place on that track and overall. Add a player (or use "Score a run" on their page) and it also shows what the run would do to them: Elo gained, new place, rank and total points. It scores the run as if it were added and rescores everyone (nothing is saved), so the track's medians shift as they would for a real run. A run that doesn't beat the player's own run on that track changes nothing.
+- **Compare** (or "Compare" on a player page): two players side by side. Their headline numbers with the better one highlighted, how many shared tracks each is ahead on (faults, then time), and a table of the tracks both have passed, or the tracks only one of them has. Picking one player suggests the players either side of them on the Elo board. Links look like `#vs:p-pennyjx:p-livinglegend3d`.
 
 Everything else (the median prior, the time shift, track ratings, ranks and the Elo curve) is only in the Python. The sheet settings (its id, the 1.5 typo gap) are at the top of `rating_sheet.py`.
 
@@ -86,7 +87,7 @@ The CSV files below stay local and are not in the repository (`.gitignore` skips
 | `output/top_runs.csv` | Output: the 25 highest-scoring individual runs |
 | `build_site.py` | Builds `index.html` from `site/template.html` with the runs, track ratings and scoring constants baked in. |
 | `site/template.html` | The page. Its `scoring` script is a JavaScript copy of the scoring in `points_calculator.py` (the page scores every run itself from the raw runs); a change to how scoring works has to be made in both |
-| `index.html` | Output: the leaderboard page. Players by Elo and by total points with their ranks, every scored run, a faults-then-time leaderboard for each track, and the points calculator. |
+| `index.html` | Output: the leaderboard page. Players by Elo and by total points with their ranks, every scored run, a faults-then-time leaderboard for each track, the points calculator and player comparisons. |
 
 ## Data rules
 
