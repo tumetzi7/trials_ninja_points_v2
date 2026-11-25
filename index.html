@@ -240,6 +240,7 @@ main { padding-block: 18px 56px; min-width: 0; }
 .calc-elo-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
 .calc-elo-top span { color: var(--muted); font-family: var(--font-data); font-variant-numeric: tabular-nums; }
 .calc-pts.flat { color: var(--muted); }
+.calc-as { text-transform: none; letter-spacing: 0; font-weight: 500; }
 .calc-elo .calc-line b small { color: var(--muted); font-family: var(--font-body); font-weight: 500; margin-left: 4px; }
 
 /* Compare */
@@ -1251,15 +1252,21 @@ var NinjaScore = (() => {
   const playerByLower = new Map(players.map(p => [p.Player.toLowerCase(), p]));
   const findPlayer = s => playerByLower.get(s.trim().toLowerCase()) || null;
 
-  // What the made-up run would do to a player: their Elo, place and total points if it were added, with everything rescored on a throwaway copy of the data (nothing is saved)
-  // (the run also nudges the track's medians, so it's scored exactly as the real one would be). A run only counts if it beats the
-  // player's own run on that track (fewer faults, then faster), the same rule the Python uses to merge runs
-  function eloImpact(p, t, f, tm) {
-    const own = p.runs.find(r => r.t === t);
-    if (own && (own.Faults < f || (own.Faults === f && own.Time <= tm)))
-      return `<div class="calc-elo"><small>For ${esc(p.Player)}</small><p class="calc-empty">Their own run here (${own.Faults}f, ${fmtTime(own.Time)}) is better, so this wouldn't change anything.</p></div>`;
+  // With a player picked, the made-up run is scored as if it were theirs: added to a throwaway copy of the data (nothing is saved),
+  // replacing their own run on the track, and everything rescored. The run then counts towards the track's medians, so its points,
+  // the breakdown and the player's Elo all match what a real run would get. A run only counts if it beats the player's own run on
+  // that track (fewer faults, then faster), the same rule the Python uses to merge runs
+  function simulate(p, t, f, tm) {
+    const own = p.runs.find(r => r.t === t) || null;
+    if (own && (own.Faults < f || (own.Faults === f && own.Time <= tm))) return { p, own, better: true };
     const D2 = { ...D, runs: D.runs.filter(([pi, ti]) => !(pi === p.pi && ti === t.ti)).concat([[p.pi, t.ti, f, tm]]) };
-    const res = NinjaScore.score(D2, S, NinjaScore.prepare(D2));
+    const prep2 = NinjaScore.prepare(D2);
+    return { p, own, D2, prep2, res: NinjaScore.score(D2, S, prep2) };
+  }
+  // What the run would do to the player: their Elo, place, rank and total points
+  function eloImpact({ p, own, better, res }, points) {
+    if (better)
+      return `<div class="calc-elo"><small>For ${pLink(p)}</small><p class="calc-empty">Their own run here (${own.Faults}f, ${fmtTime(own.Time)}) is better, so this wouldn't change anything.</p></div>`;
     const after = res.players[p.pi];
     const order = res.players.map((s, i) => i).filter(i => res.players[i].Ranked)
       .sort((a, b) => res.players[b].Elo - res.players[a].Elo || res.players[b].PlayerScore - res.players[a].PlayerScore);
@@ -1274,7 +1281,7 @@ var NinjaScore = (() => {
         <div class="calc-lines">
           ${line("Place", change(placeText(p.Place), placeText(place)))}
           ${line("Rank", change(esc(p.Rank), esc(after.Rank)))}
-          ${line("Total points", `+${fmtInt(dPts)}`, `${fmtInt(Math.round(p.TotalPoints))} &rarr; ${fmtInt(Math.round(after.TotalPoints))}`)}
+          ${line("Total points", `+${fmtInt(dPts)}`, `${fmtInt(Math.round(p.TotalPoints))} &rarr; ${fmtInt(Math.round(after.TotalPoints))}${own ? `; this run's ${fmtInt(points)} replaces their old ${fmtInt(own.Points)}` : ""}`)}
         </div>
       </div>`;
   }
@@ -1290,19 +1297,24 @@ var NinjaScore = (() => {
     const tm = tText === "" ? base.medianTime : parseTime(tText);
     if (!(Number.isFinite(f) && f >= 0 && f <= 499) || tm == null || tm <= 0 || tm >= 1800000)
       return `<p class="calc-empty">${tm == null ? "Times look like 1:23.456" : "Faults go from 0 to 499"}.</p>`;
-    const r = scoreRun(t.ti, f, tm), points = Math.round(r.points);
-    const trackPlace = t.runs.filter(x => x.Faults < f || (x.Faults === f && x.Time < tm)).length + 1;
-    const overall = allRuns.filter(x => x.score > r.points).length + 1;
+    const pText = state.calc.playerText.trim(), p = state.calc.player;
+    const sim = p ? simulate(p, t, f, tm) : null, live = sim && !sim.better;
+    const r = (live ? NinjaScore.runScorer(D, S, sim.prep2) : scoreRun)(t.ti, f, tm), points = Math.round(r.points);
+    // Places: against the other runs, without the player's own run on this track if this one replaces it
+    const others = live && sim.own ? t.runs.filter(x => x !== sim.own) : t.runs;
+    const trackPlace = others.filter(x => x.Faults < f || (x.Faults === f && x.Time < tm)).length + 1;
+    const newIdx = live ? sim.D2.runs.length - 1 : -1;
+    const overall = live ? sim.res.runScore.filter((v, i) => i !== newIdx && v > r.points).length + 1 : allRuns.filter(x => x.score > r.points).length + 1;
+    const overallOf = live ? sim.D2.runs.length : allRuns.length + 1;
     const fadeAt = Math.max(S.low_fault_reach * r.medianFaults, 2);
     const bonusText = f === 0 ? `full bonus` : r.bonus > 0 ? `${Math.round(r.bonus / r.fullBonus * 100)}% kept (1f keeps ${tidy(S.low_fault_share * 100)}%), gone at ${tidy(fadeAt).toFixed(1)}f` : `none from ${tidy(fadeAt).toFixed(1)}f`;
-    const pText = state.calc.playerText.trim(), p = state.calc.player;
-    const impact = p ? eloImpact(p, t, f, tm) : pText ? `<div class="calc-elo"><p class="calc-empty">No player by that name. Pick one from the list.</p></div>` : "";
+    const impact = sim ? eloImpact(sim, points) : pText ? `<div class="calc-elo"><p class="calc-empty">No player by that name. Pick one from the list.</p></div>` : "";
     return `
       <div class="calc-top">
-        <div><small>Points</small><b class="calc-pts">${fmtInt(points)}</b></div>
+        <div><small>Points${live ? ` <span class="calc-as">as ${esc(p.Player)}'s run</span>` : ""}</small><b class="calc-pts">${fmtInt(points)}</b></div>
         <div class="calc-place">
-          <span><b>${ord(trackPlace)}</b> of ${fmtInt(t.runs.length + 1)} on ${esc(t.Track)}</span>
-          <span><b>${ord(overall)}</b> of ${fmtInt(allRuns.length + 1)} runs overall</span>
+          <span><b>${ord(trackPlace)}</b> of ${fmtInt(others.length + 1)} on ${esc(t.Track)}</span>
+          <span><b>${ord(overall)}</b> of ${fmtInt(overallOf)} runs overall</span>
         </div>
       </div>
       ${impact}
