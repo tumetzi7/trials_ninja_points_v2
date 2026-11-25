@@ -22,7 +22,7 @@ import polars as pl     # The table library that reads the sheet
 TRACK_RATINGS_SHEET_ID = "1gBv5KJDzXPCv_MgnghG8_GPwmJ309oVKJwmg9m2z2eg"
 TRACK_RATINGS_GID = 0
 SHEET_HEADER_ROW = 4               # The first 4 rows are instructions and notes; the column names are on row 5
-SHEET_META_COLUMNS = ["Track", "Level", "Avg", "#"]   # The columns that aren't voters. Every other column is one rider's votes
+SHEET_META_COLUMNS = ["Track", "Level", "Avg", "Med", "#"]   # The columns that aren't voters (the sheet's own average or median and vote count). Every other column is one rider's votes
 VOTE_MAX_GAP = 1.5                 # A vote more than 1.5 away from the track's level must be a typo (85 meant as 8.5), so it's ignored
 
 
@@ -34,7 +34,11 @@ def fetch_sheet():
     )
     with urllib.request.urlopen(url) as response:
         csv_bytes = response.read()
-    return pl.read_csv(io.BytesIO(csv_bytes), skip_rows=SHEET_HEADER_ROW, infer_schema=False)
+    sheet = pl.read_csv(io.BytesIO(csv_bytes), skip_rows=SHEET_HEADER_ROW, infer_schema=False)
+    # The full tracks end at the first blank row. Below it the sheet has a separate section for the extra-checkpoint versions
+    # ("CPs / 50CPS", with its own header row), which don't count
+    blank = sheet["Track"].is_null().arg_true()
+    return sheet.head(blank[0]) if len(blank) else sheet
 
 
 def sheet_tracks(sheet):
