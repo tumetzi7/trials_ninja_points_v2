@@ -244,7 +244,10 @@ main { padding-block: 18px 56px; min-width: 0; }
 .calc-elo .calc-line b small { color: var(--muted); font-family: var(--font-body); font-weight: 500; margin-left: 4px; }
 
 /* Pass grid */
-.g-note { margin: -4px 2px 8px; }
+.g-levels { margin: -2px 0 12px; }
+.g-levels .chipbtn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.g-note { margin: 0 2px 8px; }
+.g-more { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 0 2px 10px; color: var(--muted); font-size: 13px; }
 .g-legend { margin: 0 2px 10px; }
 .sw.g-zero { background: var(--accent); } .sw.g-good { background: color-mix(in srgb, var(--accent) 38%, var(--surface)); } .sw.g-pass { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); border: 1px solid var(--line); }
 .g-wrap { overflow: auto; max-height: calc(100vh - 140px); }
@@ -254,8 +257,6 @@ table.t-grid { width: auto; border-collapse: separate; border-spacing: 0; }
 .t-grid thead .g-t { z-index: 3; background: var(--surface-2); vertical-align: bottom; }
 .t-grid thead .g-n { vertical-align: bottom; }
 .g-rt { font-family: var(--font-data); font-size: 13px; color: var(--muted); }
-.t-grid tbody tr.g-div td.g-p { font-family: var(--font-body); color: var(--fg); letter-spacing: 0; }
-.t-grid tbody tr.g-div td.g-n { font-family: var(--font-body); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .t-grid .g-p { padding: 8px 6px 6px; width: 112px; min-width: 112px; max-width: 112px; vertical-align: bottom; text-align: center; border-left: 1px solid var(--line); }
 .g-p a { display: block; color: var(--fg); text-decoration: none; text-transform: none; letter-spacing: 0; font-size: 12.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .g-p a:hover { color: var(--accent); }
@@ -270,7 +271,6 @@ table.t-grid { width: auto; border-collapse: separate; border-spacing: 0; }
 .t-grid tbody tr:hover th.g-t { box-shadow: inset 3px 0 0 var(--accent); }
 .t-grid .g-n { color: var(--muted); padding: 0 10px; font-size: 13px; }
 .t-grid .g-n { border-left: 1px solid var(--line); }
-.t-grid tbody tr.g-div th, .t-grid tbody tr.g-div td { background: var(--surface-2); padding-top: 6px; padding-bottom: 6px; font-family: var(--font-display); font-size: 13px; font-weight: 700; letter-spacing: .06em; color: var(--accent); }
 .t-grid tbody th.g-t { font-size: 14px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--fg); padding-top: 0; padding-bottom: 0; }
 .t-grid tbody th, .t-grid tbody td { border-bottom: 1px solid var(--line); }
 @media (max-width: 640px) { .t-grid .g-t { min-width: 170px; max-width: 190px; } .t-grid th.g-p, .t-grid td.g { width: 96px; min-width: 96px; max-width: 96px; } }
@@ -1075,7 +1075,7 @@ var NinjaScore = (() => {
   // What the page currently has switched on: the search text, which levels are filtered, the sort order, "0f only", and so on.
   // Every redraw reads from here. A few choices (like Level progress) are remembered by your browser for next time
   const PAGE = 100;   // Rows per page in long tables; "Show more" adds another page
-  const state = { q: "", totalLevels: new Set(), totalSort: { key: "points", dir: -1 }, zeroOnly: false, shown: PAGE, levels: new Set(), missing: null, vsTab: "both", calc: { track: null, trackText: "", faults: "", time: "", player: null, playerText: "" } };
+  const state = { q: "", totalLevels: new Set(), totalSort: { key: "points", dir: -1 }, zeroOnly: false, shown: PAGE, levels: new Set(), missing: null, vsTab: "both", gridLevel: 8, calc: { track: null, trackText: "", faults: "", time: "", player: null, playerText: "" } };
   const prefs = { progress: false };   // Show level progress on player pages
   try { const s = JSON.parse(localStorage.getItem("np-prefs") || "{}"); for (const k in prefs) if (typeof s[k] === "boolean") prefs[k] = s[k]; } catch (e) {}
   const savePrefs = () => { try { localStorage.setItem("np-prefs", JSON.stringify(prefs)); } catch (e) {} };
@@ -1232,52 +1232,59 @@ var NinjaScore = (() => {
       </table></div></div>`;
   }
 
-  // Pass grid: every full level 8 and 9 track (easiest at the top) against every player with a level 8+ pass (most passes on the
-  // left), like the rating sheet. A cell shows the player's faults there, shaded by how good the run is: a 0f, better than the
-  // track's median faults, or a pass. Search narrows the players, or the tracks if no player matches
+  // Pass grid: one level at a time, picked at the top. Every track of that level (easiest at the top) against every player with a
+  // pass there (most passes on the left), like the rating sheet. A cell shows the player's faults, shaded by how good the run is: a
+  // 0f, better than the track's median faults, or a pass. Lower levels have hundreds of players, so only the top 50 show. Search
+  // narrows the players (any of them, not only the top 50), or the tracks if no player matches
+  const GRID_COLS = 50;
   const tracksSeg = grid => `<nav class="seg board-seg" aria-label="Track view">
           <a href="#tracks" aria-current="${grid ? "false" : "page"}">List</a><a href="#grid" aria-current="${grid ? "page" : "false"}">Pass grid</a></nav>`;
-  function viewGrid() {
-    let rows = trackList.filter(t => t.Level >= 8).sort((a, b) => a.Rating - b.Rating || a.Track.localeCompare(b.Track));
-    // Most level 8+ passes first; ties go to more level 9s, then the higher effective level
-    const n8 = p => p.runs.filter(r => r.Level >= 8 && r.t.Level >= 8).length, n9 = p => p.runs.filter(r => r.Level >= 9).length;
-    let cols = players.filter(p => p.runs.some(r => r.Level >= 8)).sort((a, b) => n8(b) - n8(a) || n9(b) - n9(a) || b.Level - a.Level);
+  function viewGrid(lvl) {
+    if (lvl && levelTotals[lvl]) state.gridLevel = lvl;
+    const L = state.gridLevel;
+    let rows = trackList.filter(t => t.Level === L).sort((a, b) => a.Rating - b.Rating || a.Track.localeCompare(b.Track));
+    const count = new Map();
+    players.forEach(p => { const n = p.runs.filter(r => r.Level === L).length; if (n) count.set(p, n); });
+    // Most passes first; ties go to the higher effective level
+    let cols = [...count.keys()].sort((a, b) => count.get(b) - count.get(a) || b.Level - a.Level);
+    const total = cols.length;
+    let searching = false;
     if (state.q) {
       const pc = cols.filter(p => match(p.Player)), tr = rows.filter(t => match(t.Track));
-      if (pc.length) cols = pc; else if (tr.length) rows = tr; else { cols = []; rows = []; }
+      if (pc.length) { cols = pc; searching = true; } else if (tr.length) rows = tr; else { cols = []; rows = []; }
     }
+    const all = cols.length;
+    if (!searching) cols = cols.slice(0, GRID_COLS);
     const runOf = new Map();
-    cols.forEach(p => p.runs.forEach(r => { if (r.Level >= 8) runOf.set(r.t.slug + "|" + p.slug, r); }));
-    // Each level gets its own name row with every player's passes at that level, like "12/43". The first level's sits in the
-    // sticky header, the others at the top of their section
-    const rowSet = new Set(rows), levels = [...new Set(rows.map(t => t.Level))];
-    const ofLevel = l => rows.filter(t => t.Level === l).length;
-    const passed = (p, l) => p.runs.filter(r => r.Level === l && rowSet.has(r.t)).length;
-    const names = (l, tag) => cols.map(p => `<${tag} class="g-p"><a href="#${p.slug}" title="${esc(p.Player)}: ${passed(p, l)} of ${ofLevel(l)} level ${l}s passed">${esc(p.Player)}</a><small>${passed(p, l)}/${ofLevel(l)}</small></${tag}>`).join("");
-    const head = `<tr><th class="g-t">Level ${levels[0] ?? ""} &middot; track &ndash; rating</th>${names(levels[0], "th")}<th class="num g-n">Passes</th></tr>`;
-    let level = null;
+    cols.forEach(p => p.runs.forEach(r => { if (r.Level === L) runOf.set(r.t.slug + "|" + p.slug, r); }));
+    const rowSet = new Set(rows), of = rows.length;
+    const passed = p => rows.length === levelTotals[L] ? count.get(p) : p.runs.filter(r => rowSet.has(r.t)).length;
+    const head = `<tr><th class="g-t">Level ${L} &middot; track &ndash; rating</th>${cols.map(p => {
+      const n = passed(p);
+      return `<th class="g-p"><a href="#${p.slug}" title="${esc(p.Player)}: ${n} of ${of} level ${L}s passed">${esc(p.Player)}</a><small>${n}/${of}</small></th>`;
+    }).join("")}<th class="num g-n">Passes</th></tr>`;
     const body = rows.map(t => {
-      const div = level !== null && t.Level !== level ? `<tr class="g-div"><th class="g-t">Level ${t.Level}</th>${names(t.Level, "td")}<td class="num g-n">Passes</td></tr>` : "";
-      level = t.Level;
-      let n = 0;
       const cells = cols.map(p => {
         const r = runOf.get(t.slug + "|" + p.slug);
         if (!r) return `<td class="g"></td>`;
-        n++;
         const cls = r.Faults === 0 ? "zero" : r.Faults < t.median ? "good" : "pass";
         const tipText = `<b>${esc(p.Player)}</b> on ${esc(t.Track)}<br>${r.Faults}f &middot; ${fmtTime(r.Time)} &middot; ${ord(r.trackPos)} of ${t.runs.length}`;
         return `<td class="g ${cls}" tabindex="0" data-tip="${esc(tipText)}">${r.Faults}</td>`;
       }).join("");
-      return `${div}<tr><th class="g-t" scope="row"><a class="lnk" href="#${t.slug}" title="${esc(t.Track)}">${esc(t.Track)}</a> <span class="g-rt">&ndash; ${t.Rating.toFixed(2)}</span></th>${cells}<td class="num g-n">${n}</td></tr>`;
+      return `<tr><th class="g-t" scope="row"><a class="lnk" href="#${t.slug}" title="${esc(t.Track)}">${esc(t.Track)}</a> <span class="g-rt">&ndash; ${t.Rating.toFixed(2)}</span></th>${cells}<td class="num g-n" title="Everyone's passes">${t.runs.length}</td></tr>`;
     }).join("");
+    const picker = `<div class="toggles g-levels">${levelsDesc.map(l => `<a class="chipbtn" href="#grid:${l}" aria-pressed="${l === L}">Level ${l} <span class="lv-of">${levelTotals[l]}</span></a>`).join("")}</div>`;
+    const more = all > cols.length ? `<div class="g-more"><span>Showing the top ${fmtInt(cols.length)} of ${fmtInt(total)} players. Search to find anyone else.</span></div>` : "";
     const legend = `<div class="legend g-legend"><span><i class="sw g-zero"></i>0f</span><span><i class="sw g-good"></i>Under the track's median faults</span><span><i class="sw g-pass"></i>Pass</span></div>`;
     return `
       <div class="head">
         <div><h2>Pass grid</h2></div>
         <div class="toggles">${tracksSeg(true)}</div>
       </div>
-      <p class="note g-note">Full level 8 and 9 tracks, easiest at the top. Players with a level 8+ pass, most passes on the left, with how many of each level's tracks they've passed. Numbers are faults.</p>
+      ${picker}
+      <p class="note g-note">Level ${L} tracks, easiest at the top. Players with a level ${L} pass, most passes on the left. Numbers are faults.</p>
       ${legend}
+      ${more}
       ${rows.length && cols.length ? `<div class="card"><div class="g-wrap"><table class="t-grid">
         <thead>${head}</thead>
         <tbody>${body}</tbody>
@@ -1707,6 +1714,7 @@ var NinjaScore = (() => {
   function current() {
     const h = location.hash.slice(1);
     if (["runs", "tracks", "players", "points", "grid"].includes(h)) return { view: h };
+    if (h.startsWith("grid:")) return { view: "grid", l: +h.slice(5) };   // #grid:7 is the level 7 grid
     if (h === "calc" || h.startsWith("calc:")) {   // #calc:<track>, #calc:<player> or #calc:<track>:<player>
       const parts = h.split(":").slice(1);
       return { view: "calc", t: parts.map(s => trackBySlug.get(s)).find(Boolean), p: parts.map(s => playerBySlug.get(s)).find(Boolean) };
@@ -1726,7 +1734,7 @@ var NinjaScore = (() => {
     const key = location.hash;
     if (["players", "points", "runs", "tracks", "grid"].includes(c.view)) lastList = c.view;
     document.querySelectorAll(".seg a").forEach(a => a.setAttribute("aria-current", a.dataset.view === navOf(["track", "player"].includes(c.view) ? lastList : c.view) ? "page" : "false"));
-    const html = c.view === "runs" ? viewRuns() : c.view === "tracks" ? viewTracks() : c.view === "track" ? viewTrack(c.t) : c.view === "player" ? viewPlayer(c.p) : c.view === "calc" ? viewCalc(c.t, c.p) : c.view === "vs" ? viewCompare(c.a, c.b) : c.view === "grid" ? viewGrid() : viewPlayers(c.view === "points");
+    const html = c.view === "runs" ? viewRuns() : c.view === "tracks" ? viewTracks() : c.view === "track" ? viewTrack(c.t) : c.view === "player" ? viewPlayer(c.p) : c.view === "calc" ? viewCalc(c.t, c.p) : c.view === "vs" ? viewCompare(c.a, c.b) : c.view === "grid" ? viewGrid(c.l) : viewPlayers(c.view === "points");
     const app = $("#app"), entering = key !== prevKey;
     app.innerHTML = html;
     app.classList.toggle("enter", entering && !calm.matches);
