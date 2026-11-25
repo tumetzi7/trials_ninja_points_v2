@@ -243,6 +243,36 @@ main { padding-block: 18px 56px; min-width: 0; }
 .calc-as { text-transform: none; letter-spacing: 0; font-weight: 500; }
 .calc-elo .calc-line b small { color: var(--muted); font-family: var(--font-body); font-weight: 500; margin-left: 4px; }
 
+/* Pass grid */
+.g-note { margin: -4px 2px 8px; }
+.g-legend { margin: 0 2px 10px; }
+.sw.g-zero { background: var(--accent); } .sw.g-good { background: color-mix(in srgb, var(--accent) 38%, var(--surface)); } .sw.g-pass { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); border: 1px solid var(--line); }
+.g-wrap { overflow: auto; max-height: calc(100vh - 140px); }
+table.t-grid { width: auto; border-collapse: separate; border-spacing: 0; }
+.t-grid thead th { position: sticky; top: 0; z-index: 2; }
+.t-grid .g-t { position: sticky; left: 0; z-index: 1; background: var(--surface); min-width: 190px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid var(--line); }
+.t-grid thead .g-t { z-index: 3; background: var(--surface-2); vertical-align: bottom; }
+.t-grid thead .g-r, .t-grid thead .g-n { vertical-align: bottom; }
+.t-grid th.g-p { padding: 8px 0 6px; width: 34px; min-width: 34px; max-width: 34px; vertical-align: bottom; text-align: center; border-left: 1px solid var(--line); }
+.g-p a { display: block; margin: 0 auto; color: var(--fg); text-decoration: none; text-transform: none; letter-spacing: 0; font-size: 12px; font-weight: 600; }
+.g-p a span { display: inline-block; writing-mode: vertical-rl; transform: rotate(180deg); max-height: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.g-p a:hover { color: var(--accent); }
+.g-p small { display: block; margin-top: 4px; font-family: var(--font-data); font-size: 9.5px; color: var(--muted); letter-spacing: 0; }
+.t-grid td.g { width: 34px; min-width: 34px; padding: 0; height: 28px; text-align: center; border-left: 1px solid var(--line); font-family: var(--font-data); font-size: 12px; font-variant-numeric: tabular-nums; outline: none; }
+.t-grid td.g.pass { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+.t-grid td.g.good { background: color-mix(in srgb, var(--accent) 38%, var(--surface)); }
+.t-grid td.g.zero { background: var(--accent); color: var(--bg); font-weight: 700; }
+.t-grid td.g:is(:hover, :focus-visible) { box-shadow: inset 0 0 0 2px var(--fg); }
+.t-grid tbody tr:hover td.g:not(.pass, .good, .zero) { background: color-mix(in srgb, var(--accent) 5%, var(--surface-2)); }
+.t-grid tbody tr:hover td:first-child { box-shadow: none; }
+.t-grid tbody tr:hover th.g-t { box-shadow: inset 3px 0 0 var(--accent); }
+.t-grid .g-r, .t-grid .g-n { color: var(--muted); padding: 0 10px; font-size: 13px; }
+.t-grid .g-n { border-left: 1px solid var(--line); }
+.t-grid tbody tr.g-div th, .t-grid tbody tr.g-div td { background: var(--surface-2); padding-top: 6px; padding-bottom: 6px; font-family: var(--font-display); font-size: 13px; font-weight: 700; letter-spacing: .06em; color: var(--accent); }
+.t-grid tbody th.g-t { font-size: 14px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--fg); padding-top: 0; padding-bottom: 0; }
+.t-grid tbody th, .t-grid tbody td { border-bottom: 1px solid var(--line); }
+@media (max-width: 640px) { .t-grid .g-t { min-width: 130px; max-width: 150px; } .t-grid .g-r { display: none; } }
+
 /* Compare */
 a.chipbtn { text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
 .vs-pick { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 14px; }
@@ -1046,7 +1076,7 @@ var NinjaScore = (() => {
   const savePrefs = () => { try { localStorage.setItem("np-prefs", JSON.stringify(prefs)); } catch (e) {} };
   const match = (...fields) => !state.q || fields.some(f => f.toLowerCase().includes(state.q));
   let lastList = "players";
-  const backLabel = () => ({ runs: "top runs", points: "total points" }[lastList] || lastList);
+  const backLabel = () => ({ runs: "top runs", points: "total points", grid: "pass grid" }[lastList] || lastList);
 
   // Long tables show 100 rows at a time. This is the "Show more" button under them (plus "Show all" once what's left isn't too many)
   const moreRow = left => left > 0 ? `<div class="more"><button class="btn" id="more">Show ${fmtInt(Math.min(left, PAGE))} more <span style="color:var(--muted);font-weight:500">of ${fmtInt(left)}</span></button>${left <= 2000 ? '<button class="btn" id="all" style="margin-left:8px">Show all</button>' : ""}</div>` : "";
@@ -1189,12 +1219,58 @@ var NinjaScore = (() => {
     return `
       <div class="head">
         <div><h2>Tracks</h2></div>
-        <div class="toggles">${lv.map(l => `<button class="chipbtn" data-level="${l}" aria-pressed="${state.levels.has(l)}">Level ${l}</button>`).join("")}</div>
+        <div class="toggles">${tracksSeg(false)}${lv.map(l => `<button class="chipbtn" data-level="${l}" aria-pressed="${state.levels.has(l)}">Level ${l}</button>`).join("")}</div>
       </div>
       <div class="card"><div class="scroll"><table class="t-tracks">
         <thead><tr><th>Track</th><th class="num">Rating</th><th class="num">Passes</th><th class="hide-sm">Record holder</th><th class="num">Faults</th><th class="num hide-sm">Time</th></tr></thead>
         <tbody>${body || `<tr><td colspan="6" class="empty">No tracks match.</td></tr>`}</tbody>
       </table></div></div>`;
+  }
+
+  // Pass grid: every full level 8 and 9 track (easiest at the top) against every player with a level 8+ pass (highest effective level
+  // on the left), like the rating sheet. A cell shows the player's faults there, shaded by how good the run is: a 0f, better than the
+  // track's median faults, or a pass. Search narrows the players, or the tracks if no player matches
+  const tracksSeg = grid => `<nav class="seg board-seg" aria-label="Track view">
+          <a href="#tracks" aria-current="${grid ? "false" : "page"}">List</a><a href="#grid" aria-current="${grid ? "page" : "false"}">Pass grid</a></nav>`;
+  function viewGrid() {
+    let rows = trackList.filter(t => t.Level >= 8).sort((a, b) => a.Rating - b.Rating || a.Track.localeCompare(b.Track));
+    let cols = players.filter(p => p.runs.some(r => r.Level >= 8)).sort((a, b) => b.Level - a.Level);
+    if (state.q) {
+      const pc = cols.filter(p => match(p.Player)), tr = rows.filter(t => match(t.Track));
+      if (pc.length) cols = pc; else if (tr.length) rows = tr; else { cols = []; rows = []; }
+    }
+    const runOf = new Map();
+    cols.forEach(p => p.runs.forEach(r => { if (r.Level >= 8) runOf.set(r.t.slug + "|" + p.slug, r); }));
+    const rowSet = new Set(rows), passed = p => p.runs.filter(r => rowSet.has(r.t)).length;
+    const head = `<tr><th class="g-t">Track</th><th class="num g-r">Rating</th>${cols.map(p =>
+      `<th class="g-p"><a href="#${p.slug}" title="${esc(p.Player)}: level ${p.Level.toFixed(2)}, ${passed(p)} of ${rows.length} passed"><span>${esc(p.Player)}</span></a><small>${p.Level.toFixed(2)}</small></th>`).join("")}<th class="num g-n">Passes</th></tr>`;
+    let level = null;
+    const body = rows.map(t => {
+      const div = t.Level !== level ? `<tr class="g-div"><th class="g-t">Level ${t.Level}</th><td colspan="${cols.length + 2}"></td></tr>` : "";
+      level = t.Level;
+      let n = 0;
+      const cells = cols.map(p => {
+        const r = runOf.get(t.slug + "|" + p.slug);
+        if (!r) return `<td class="g"></td>`;
+        n++;
+        const cls = r.Faults === 0 ? "zero" : r.Faults < t.median ? "good" : "pass";
+        const tipText = `<b>${esc(p.Player)}</b> on ${esc(t.Track)}<br>${r.Faults}f &middot; ${fmtTime(r.Time)} &middot; ${ord(r.trackPos)} of ${t.runs.length}`;
+        return `<td class="g ${cls}" tabindex="0" data-tip="${esc(tipText)}">${r.Faults}</td>`;
+      }).join("");
+      return `${div}<tr><th class="g-t" scope="row"><a class="lnk" href="#${t.slug}" title="${esc(t.Track)}">${esc(t.Track)}</a></th><td class="num g-r">${t.Rating.toFixed(2)}</td>${cells}<td class="num g-n">${n}</td></tr>`;
+    }).join("");
+    const legend = `<div class="legend g-legend"><span><i class="sw g-zero"></i>0f</span><span><i class="sw g-good"></i>Under the track's median faults</span><span><i class="sw g-pass"></i>Pass</span></div>`;
+    return `
+      <div class="head">
+        <div><h2>Pass grid</h2></div>
+        <div class="toggles">${tracksSeg(true)}</div>
+      </div>
+      <p class="note g-note">Full level 8 and 9 tracks, easiest at the top. Players with a level 8+ pass, highest effective level on the left. Numbers are faults.</p>
+      ${legend}
+      ${rows.length && cols.length ? `<div class="card"><div class="g-wrap"><table class="t-grid">
+        <thead>${head}</thead>
+        <tbody>${body}</tbody>
+      </table></div></div>` : `<div class="card"><p class="empty">No players or tracks match &ldquo;${esc(state.q)}&rdquo;.</p></div>`}`;
   }
 
   function viewTrack(t) {
@@ -1619,7 +1695,7 @@ var NinjaScore = (() => {
   // #calc, or a player's or track's own name. Clicking a link changes it, and the page redraws to match
   function current() {
     const h = location.hash.slice(1);
-    if (["runs", "tracks", "players", "points"].includes(h)) return { view: h };
+    if (["runs", "tracks", "players", "points", "grid"].includes(h)) return { view: h };
     if (h === "calc" || h.startsWith("calc:")) {   // #calc:<track>, #calc:<player> or #calc:<track>:<player>
       const parts = h.split(":").slice(1);
       return { view: "calc", t: parts.map(s => trackBySlug.get(s)).find(Boolean), p: parts.map(s => playerBySlug.get(s)).find(Boolean) };
@@ -1633,13 +1709,13 @@ var NinjaScore = (() => {
     return { view: "players" };
   }
   let prevKey = null;
-  const navOf = v => v === "points" ? "players" : v;   // Both boards sit under Players
+  const navOf = v => v === "points" ? "players" : v === "grid" ? "tracks" : v;   // Both boards sit under Players, the pass grid under Tracks
   function render() {
     const c = current();
     const key = location.hash;
-    if (["players", "points", "runs", "tracks"].includes(c.view)) lastList = c.view;
+    if (["players", "points", "runs", "tracks", "grid"].includes(c.view)) lastList = c.view;
     document.querySelectorAll(".seg a").forEach(a => a.setAttribute("aria-current", a.dataset.view === navOf(["track", "player"].includes(c.view) ? lastList : c.view) ? "page" : "false"));
-    const html = c.view === "runs" ? viewRuns() : c.view === "tracks" ? viewTracks() : c.view === "track" ? viewTrack(c.t) : c.view === "player" ? viewPlayer(c.p) : c.view === "calc" ? viewCalc(c.t, c.p) : c.view === "vs" ? viewCompare(c.a, c.b) : viewPlayers(c.view === "points");
+    const html = c.view === "runs" ? viewRuns() : c.view === "tracks" ? viewTracks() : c.view === "track" ? viewTrack(c.t) : c.view === "player" ? viewPlayer(c.p) : c.view === "calc" ? viewCalc(c.t, c.p) : c.view === "vs" ? viewCompare(c.a, c.b) : c.view === "grid" ? viewGrid() : viewPlayers(c.view === "points");
     const app = $("#app"), entering = key !== prevKey;
     app.innerHTML = html;
     app.classList.toggle("enter", entering && !calm.matches);
