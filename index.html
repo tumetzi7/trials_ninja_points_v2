@@ -759,6 +759,7 @@ table.guide tbody tr:hover td:first-child { box-shadow: none; }
 .fact small { color: var(--muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
 .fact b { font-family: var(--font-data); font-weight: 600; font-size: 18px; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fact b.txt { font-family: var(--font-body); font-size: 16px; }
+.fact b.hp .hp-r { font-family: var(--font-data); font-size: 18px; margin-right: 2px; }
 .levels { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
 .lv { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; display: grid; gap: 8px; min-width: 0; }
 .lv-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
@@ -1714,6 +1715,7 @@ var NinjaScore = (() => {
     const list = p.runs.filter(r => (!state.zeroOnly || r.Faults === 0) && match(r.Track));
     const records = p.runs.filter(r => r.trackPos === 1).length;
     const flawless = p.runs.filter(r => r.Faults === 0).length;
+    const hardest = p.runs.reduce((h, r) => !h || r.t.Rating > h.Rating ? r.t : h, null);
     const body = list.map(r => `
       <tr>
         <td>${tLink(r.t)}</td>
@@ -1735,8 +1737,8 @@ var NinjaScore = (() => {
           <div class="fact"><small>Runs</small><b>${p.Runs}</b></div>
           <div class="fact"><small>Track records</small><b>${records}</b></div>
           <div class="fact"><small>0f runs</small><b>${flawless}</b></div>
+          <div class="fact"><small>Hardest pass</small><b class="txt hp"${hardest ? ` title="${esc(hardest.Track)}, Lvl ${+hardest.Rating.toFixed(2)}"` : ""}>${hardest ? `<a class="lnk" href="#${hardest.slug}"><span class="hp-r">${+hardest.Rating.toFixed(2)}</span> ${esc(hardest.Track)}</a>` : "&ndash;"}</b></div>
           <div class="fact"><small>Total time</small><b class="span" title="Every logged pass added up">${fmtSpan(p.runs.reduce((s, r) => s + r.Time, 0))}</b></div>
-          <div class="fact"><small>Total faults</small><b>${fmtInt(p.runs.reduce((s, r) => s + r.Faults, 0))}</b></div>
         </div>
         ${eloByLevel(p)}
       </section>
