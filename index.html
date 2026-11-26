@@ -209,6 +209,12 @@ main { padding-block: 18px 56px; min-width: 0; }
 
 /* Player hero: ten facts as two rows of five on wide screens; the total time may wrap rather than be cut off */
 @media (min-width: 900px) { .facts.p-facts { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+/* Narrower: two columns, in this order: Elo, runs, rank, level, points rank, points, track records, 0f runs, time, faults */
+@media (max-width: 899px) {
+  .facts.p-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .p-facts .fact:nth-child(6) { order: 1; } .p-facts .fact:nth-child(2) { order: 2; } .p-facts .fact:nth-child(3) { order: 3; }
+  .p-facts .fact:nth-child(5) { order: 4; } .p-facts .fact:nth-child(4) { order: 5; } .p-facts .fact:nth-child(n+7) { order: 6; }
+}
 .fact b.span { white-space: normal; }
 
 /* Ride next */
@@ -217,12 +223,10 @@ main { padding-block: 18px 56px; min-width: 0; }
 .ride .chart-head > span { display: inline-flex; align-items: center; gap: 6px; }
 .ride-goal { margin: 0 0 12px; line-height: 1.9; }
 .ride-goal b { font-family: var(--font-data); color: var(--accent); }
-.ride-f { color: var(--muted); font-family: var(--font-data); font-size: 13px; }
-.ride-note { margin: 10px 2px 8px; }
+.ride-sub { margin: 4px 0 10px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .ride .scroll { margin: 0 -16px; border-top: 1px solid var(--line); }
 .ride .more { margin: 0 -16px; }
 .ride .empty { margin: 0 -16px; border-top: 1px solid var(--line); }
-.ride-med { color: var(--muted); font-size: 12px; }
 .ride-elo { font-weight: 700; color: var(--accent); }
 .ride-elo small { display: block; font-weight: 500; font-size: 11px; color: var(--muted); }
 .ride-none { color: var(--muted); font-weight: 500; }
@@ -1103,16 +1107,13 @@ var NinjaScore = (() => {
     return `<span class="rank gem ${rankClass(g)}">${ring}${label}${tw}</span>`;
   };
   const pLink = p => p ? `<a class="lnk" href="#${p.slug}">${esc(p.Player)}</a>` : "";
-  const tLink = t => `<a class="lnk trk" href="#${t.slug}">${esc(t.Track)}<span class="lvl">L${t.Level}</span></a>`;
+  const tLink = t => `<a class="lnk trk" href="#${t.slug}">${esc(t.Track)}<span class="lvl">Lvl ${+t.Rating.toFixed(2)}</span></a>`;   // Lvl 8.8, or Lvl 8 for a flat rating
   const faults = f => `<span class="flt${f === 0 ? " zero" : ""}"${f === 0 ? ' title="Zero faults"' : ""}>${f}</span>`;
 
   // What the page currently has switched on: the search text, which levels are filtered, the sort order, "0f only", and so on.
   // Every redraw reads from here. A few choices (like Level progress) are remembered by your browser for next time
   const PAGE = 100;   // Rows per page in long tables; "Show more" adds another page
-  const state = { q: "", totalLevels: new Set(), totalSort: { key: "points", dir: -1 }, zeroOnly: false, shown: PAGE, levels: new Set(), missing: null, vsTab: "both", gridLevel: 8, rideTab: null, rideAll: false, runLevels: new Set(), calc: { track: null, trackText: "", faults: "", time: "", player: null, playerText: "" } };
-  const prefs = { progress: false, ride: true };   // Show level progress and Ride next on player pages
-  try { const s = JSON.parse(localStorage.getItem("np-prefs") || "{}"); for (const k in prefs) if (typeof s[k] === "boolean") prefs[k] = s[k]; } catch (e) {}
-  const savePrefs = () => { try { localStorage.setItem("np-prefs", JSON.stringify(prefs)); } catch (e) {} };
+  const state = { q: "", totalLevels: new Set(), totalSort: { key: "points", dir: -1 }, zeroOnly: false, shown: PAGE, levels: new Set(), missing: null, vsTab: "both", gridLevel: 8, ptab: "runs", rideAll: false, runLevels: new Set(), calc: { track: null, trackText: "", faults: "", time: "", player: null, playerText: "" } };
   const match = (...fields) => !state.q || fields.some(f => f.toLowerCase().includes(state.q));
   let lastList = "players";
   const backLabel = () => ({ runs: "top runs", points: "total points", grid: "pass grid" }[lastList] || lastList);
@@ -1542,21 +1543,19 @@ var NinjaScore = (() => {
     return `<div class="progress">${boxes ? `<div class="levels">${boxes}</div>` : ""}${rest}${miss}</div>`;
   }
 
-  // RIDE NEXT: for one player, the runs most likely to move their Elo. Every track up to RIDE.far above their effective level (plus
-  // their own runs they could ride much cleaner) gets a likely result, and that run is tried on their Elo.
+  // RIDE NEXT: for one player, the new passes most likely to move their Elo. Every track they haven't passed, rated up to RIDE.step
+  // above their effective level, gets a likely result, and that run is tried on their Elo.
   //  - Likely faults. A run is compared with the track's median faults as log((faults + 1) / (median + 1)). Across everyone, that
   //    depends on how far the track's rating is from the rider's effective level (G, fitted once from every run), plus the rider's
   //    own lean: how much better or worse than that they ride, measured on their runs near this track's rating (closer ones count
   //    more), shrunk towards nothing when they have few runs there. Never below 1f: a 0f is never assumed.
   //  - Elo. Only this player is rescored, with the track medians as they are now, so it's a close estimate; the calculator (the Try
   //    link) gives the exact number for any one run.
-  //  - Tiers, by the track's rating against the effective level: within reach, next step, long shot. Players near the same effective
-  //    level are the "peers": the share of them who've passed a track weights the order (a track few of them have passed drops down)
-  //    and long shots no peer has passed are left out.
-  //  - The route: these runs picked best first (by the same weighted gain, with long shots halved), until the next rank division
-  //    or RIDE.routeMax runs
-  const RIDE = { binWidth: 0.25, binFrom: -5, binTo: 2, leanShrink: 3, leanWidth: 0.6, reach: 0.15, step: 0.6, far: 1.2,
-    peersWithin: 0.25, peersMin: 25, againShare: 0.85, againFaults: 3, shown: 8, routeMax: 10, routeNamed: 5 };
+  //  - Order: the Elo gain, weighted by "peers", the players near the same effective level: a track few of them have passed drops down.
+  //    The page shows the track medians, not the likely faults (the Try link opens the likely run in the calculator).
+  //  - The route: these runs picked best first (by the same weighted gain), until the next rank division or RIDE.routeMax runs
+  const RIDE = { binWidth: 0.25, binFrom: -5, binTo: 2, leanShrink: 3, leanWidth: 0.6, step: 0.6,
+    peersWithin: 0.25, peersMin: 25, shown: 8, routeMax: 10, routeNamed: 5 };
   const summarise = NinjaScore.playerScorer(S);
   let rideModel = null;
   function rideFit() {
@@ -1630,27 +1629,20 @@ var NinjaScore = (() => {
     const gainOf = (after, t) => rawElo(after, Math.max(highest, t.Level) + 1) - nowRaw;
     const all = [];
     trackList.forEach(t => {
-      if (t.Rating > L + RIDE.far) return;
-      const mine = own.has(t) ? p.runs[own.get(t)] : null;
+      if (t.Rating > L + RIDE.step || own.has(t)) return;
       const f = Math.min(499, Math.max(1, Math.round((M.medF[t.ti] + 1) * Math.exp(M.G(t.Rating - L) + leanAt(t.Rating)) - 1)));
-      if (mine && !(f <= mine.Faults * RIDE.againShare && mine.Faults - f >= RIDE.againFaults)) return;
       const tm = Math.round(prep[t.ti].medianTime);
       const pts = M.scoreRun(t.ti, f, tm).points;
       const after = tryRuns([{ t, pts }]);
       const share = (peerPasses.get(t) || 0) / Math.max(1, peers.length);
-      const tier = mine ? "again" : t.Rating <= L + RIDE.reach ? "reach" : t.Rating <= L + RIDE.step ? "step" : "long";
-      if (tier === "long" && !peerPasses.get(t)) return;
       const gain = gainOf(after, t);
       if (gain < 0.5) return;   // Under 1 Elo isn't worth listing (it still adds to total points, but every pass does)
-      // Order: the Elo gain, weighted towards tracks more peers have passed (a new pass only; a run to redo is known to be possible)
-      // A long shot counts half again, so the route only leans on one when nothing nearer gets there
-      const weight = mine ? 1 : (0.4 + 0.6 * Math.min(1, share / 0.5)) * (tier === "long" ? 0.5 : 1);
-      all.push({ t, f, tm, pts, mine, after, share, tier, gain, weight, sortKey: gain * weight, place: placeOf(after) });
+      const weight = 0.4 + 0.6 * Math.min(1, share / 0.5);   // Towards tracks more peers have passed
+      all.push({ t, f, tm, pts, after, share, gain, weight, sortKey: gain * weight, place: placeOf(after) });
     });
-    const tiers = {};
-    for (const k of ["reach", "step", "long", "again"]) tiers[k] = all.filter(x => x.tier === k).sort((a, b) => b.sortKey - a.sortKey || a.t.Rating - b.t.Rating);
+    all.sort((a, b) => b.sortKey - a.sortKey || a.t.Rating - b.t.Rating);
 
-    // Next rank division, and the shortest route to it from the within reach, next step and ride again lists
+    // Next rank division, and the shortest route to it from the list
     const gated = L >= highest + 1;
     const cur = Math.min(L, highest + 1 - 1e-9);
     const next = divisions.find(d => d.at > cur + 1e-9 && d.name !== p.Rank) || null;
@@ -1674,22 +1666,12 @@ var NinjaScore = (() => {
       if (after && after.Rank !== p.Rank) route = { picks, after, place: placeOf(after) };
     }
     const nextGem = S.points_ranks.find(([, start]) => start > p.TotalPoints) || null;
-    rideCache = { p, tiers, peers: peers.length, next, gated, needLevel: highest + 1, eloToNext: next ? eloAt(next.at) - p.Elo : 0, route, nextGem };
+    rideCache = { p, list: all, peers: peers.length, next, gated, needLevel: highest + 1, eloToNext: next ? eloAt(next.at) - p.Elo : 0, route, nextGem };
     return rideCache;
   }
 
-  const RIDE_TABS = [["reach", "Within reach"], ["step", "Next step"], ["long", "Long shots"], ["again", "Ride again"]];
-  const RIDE_NOTES = {
-    reach: L => `New passes rated up to ${(L + RIDE.reach).toFixed(2)}: at or around your effective level.`,
-    step: L => `New passes rated ${(L + RIDE.reach).toFixed(2)} to ${(L + RIDE.step).toFixed(2)}: a step above your effective level.`,
-    long: L => `New passes rated ${(L + RIDE.step).toFixed(2)} to ${(L + RIDE.far).toFixed(2)} that someone near your level has passed.`,
-    again: () => `Tracks you've passed where a run like your others would be much cleaner than the one you have.`,
-  };
   function rideCard(p) {
-    const R = rideNext(p), L = p.Level;
-    // Opens on the first list with anything in it, next step first (where the big gains usually are), unless one was picked
-    const tab = state.rideTab || ["step", "reach", "again", "long"].find(k => R.tiers[k].length) || "reach";
-    const list = R.tiers[tab], shown = state.rideAll ? list : list.slice(0, RIDE.shown);
+    const R = rideNext(p), list = R.list, shown = state.rideAll ? list : list.slice(0, RIDE.shown);
     const elo = x => x.after.Elo - p.Elo;
     const eloText = x => elo(x) > 0 ? `+${fmtInt(elo(x))}` : `<span class="ride-none" title="Under 1 Elo">&lt;1</span>`;
     const placeText = x => x.place && p.Place && x.place < p.Place ? `<small>${ord(x.place)}</small>` : "";
@@ -1697,20 +1679,18 @@ var NinjaScore = (() => {
     const body = shown.map(x => `
       <tr>
         <td>${tLink(x.t)}${rankUp(x)}</td>
-        <td class="num hide-sm">${x.t.Rating.toFixed(2)}</td>
-        ${tab === "again" ? `<td class="num">${faults(x.mine.Faults)}</td>` : `<td class="num hide-sm" title="${Math.round(x.share * R.peers)} of ${R.peers} players near your level have passed it">${Math.round(x.share * 100)}%</td>`}
-        <td class="num">~${x.f}<span class="ride-med"> / ${tidy(+rideModel.medF[x.t.ti].toFixed(1))}</span></td>
+        <td class="num hide-sm" title="${Math.round(x.share * R.peers)} of ${R.peers} players near your level have passed it">${Math.round(x.share * 100)}%</td>
+        <td class="num">${Math.round(rideModel.medF[x.t.ti])}</td>
         <td class="num ride-elo">${eloText(x)}${placeText(x)}</td>
         <td class="num pts hide-sm">+${fmtInt(Math.round(x.after.TotalPoints - p.TotalPoints))}</td>
         <td class="num"><a class="lnk ride-try" href="#calc:${x.t.slug}:${p.slug}:${x.f}" title="Open this run in the calculator">Try</a></td>
       </tr>`).join("");
-    const tabs = RIDE_TABS.map(([k, label]) => `<button class="chipbtn" data-ridetab="${k}" aria-pressed="${k === tab}">${label} <span class="lv-of">${R.tiers[k].length}</span></button>`).join("");
     // Headline: the next rank and how to get there
     let goal;
     if (!R.next) goal = `<p class="ride-goal">${rankChip(p.Rank)} is the top rank. Every run here still adds to your Elo.</p>`;
     else if (R.gated && R.next) goal = `<p class="ride-goal">Your Elo is held at the top of ${rankChip(p.Rank)} until you pass a level ${R.needLevel} track. Any level ${R.needLevel} pass below unlocks ${rankChip(R.next.name)}.</p>`;
     else goal = `<p class="ride-goal"><b>${fmtInt(R.eloToNext)} Elo</b> to ${rankChip(R.next.name)}.${R.route
-      ? ` ${R.route.picks.length === 1 ? "One run" : `About ${R.route.picks.length} runs`} away: ${R.route.picks.slice(0, RIDE.routeNamed).map(x => `<a class="lnk" href="#${x.t.slug}">${esc(x.t.Track)}</a> <span class="ride-f">~${x.f}f${x.mine ? `, now ${x.mine.Faults}f` : ""}</span>`).join(", ")}${R.route.picks.length > RIDE.routeNamed ? ` and ${R.route.picks.length - RIDE.routeNamed} more like them` : ""}, for ${fmtInt(R.route.after.Elo)} Elo${R.route.place && p.Place && R.route.place < p.Place ? ` and ${ord(R.route.place)} place` : ""}.`
+      ? ` ${R.route.picks.length === 1 ? "One run" : `About ${R.route.picks.length} runs`} away: ${R.route.picks.slice(0, RIDE.routeNamed).map(x => `<a class="lnk" href="#${x.t.slug}">${esc(x.t.Track)}</a>`).join(", ")}${R.route.picks.length > RIDE.routeNamed ? ` and ${R.route.picks.length - RIDE.routeNamed} more like them` : ""}, for ${fmtInt(R.route.after.Elo)} Elo${R.route.place && p.Place && R.route.place < p.Place ? ` and ${ord(R.route.place)} place` : ""}.`
       : ` The runs below don't get there on their own; it'll take ${p.runs.length ? "cleaner runs than you usually ride, or a harder pass" : "more passes"}.`}</p>`;
     if (!p.Ranked) goal += `<p class="ride-goal">${S.min_runs - p.Runs} more run${S.min_runs - p.Runs === 1 ? "" : "s"} for a place on the board.</p>`;
     const gem = R.nextGem ? `<span>${fmtInt(Math.ceil(R.nextGem[1] - p.TotalPoints))} points to ${gemChip(R.nextGem[0])}</span>` : "";
@@ -1718,17 +1698,18 @@ var NinjaScore = (() => {
       <div class="card ride">
         <div class="chart-head"><h3>Ride next</h3>${gem}</div>
         ${goal}
-        <div class="toggles ride-tabs">${tabs}</div>
-        <p class="note ride-note">${RIDE_NOTES[tab](L)} Likely faults come from how you've ridden tracks near each rating, against each track's median (the one points are scored against). ${tab === "again" ? "Biggest Elo gain first." : "Biggest Elo gain first, with tracks fewer of your peers have passed further down."}</p>
+        <h4 class="ride-sub">Next steps <span class="lv-of">${list.length}</span></h4>
         ${list.length ? `<div class="scroll"><table class="t-ride">
-          <thead><tr><th>Track</th><th class="num hide-sm">Rating</th>${tab === "again" ? '<th class="num">Now</th>' : `<th class="num hide-sm" title="Share of the ${R.peers} players nearest your effective level who've passed it">Peers</th>`}<th class="num" title="Likely faults / the track's median faults">Likely <span class="ride-med">/ median</span></th><th class="num">Elo</th><th class="num hide-sm">Points</th><th class="num"><span class="sr">Calculator</span></th></tr></thead>
+          <thead><tr><th>Track</th><th class="num hide-sm" title="Share of the ${R.peers} players nearest your effective level who've passed it">Peers</th><th class="num" title="The track's median faults">Median</th><th class="num">Elo</th><th class="num hide-sm">Points</th><th class="num"><span class="sr">Calculator</span></th></tr></thead>
           <tbody>${body}</tbody>
         </table></div>
         ${list.length > RIDE.shown ? `<div class="more"><button class="btn" id="ride-all">${state.rideAll ? "Show fewer" : `Show all ${list.length}`}</button></div>` : ""}`
-        : `<p class="empty">${tab === "again" ? "No runs to redo: each of yours is about as clean as your others." : "Nothing new in this range."}</p>`}
+        : `<p class="empty">No new passes near your level would add Elo.</p>`}
       </div>`;
   }
 
+  // A player page shows one of these under its header, All runs when it opens
+  const PTABS = [["runs", "All runs"], ["ride", "Ride next"], ["progress", "Level progress"]];
   function viewPlayer(p) {
     const list = p.runs.filter(r => (!state.zeroOnly || r.Faults === 0) && match(r.Track));
     const records = p.runs.filter(r => r.trackPos === 1).length;
@@ -1736,7 +1717,6 @@ var NinjaScore = (() => {
     const body = list.map(r => `
       <tr>
         <td>${tLink(r.t)}</td>
-        <td class="num hide-sm">${r.t.Rating.toFixed(2)}</td>
         <td class="num">${faults(r.Faults)}</td>
         <td class="num hide-sm">${fmtTime(r.Time)}</td>
         <td class="num">${ord(r.trackPos)}<span style="color:var(--muted)"> / ${r.t.runs.length}</span></td>
@@ -1761,18 +1741,15 @@ var NinjaScore = (() => {
         ${eloByLevel(p)}
       </section>
       <div class="toggles p-tools">
-        <button class="chipbtn" id="tg-ride" aria-pressed="${prefs.ride}">Ride next</button>
-        <button class="chipbtn" id="tg-progress" aria-pressed="${prefs.progress}">Level progress</button>
-        <button class="chipbtn" id="tg-zero" aria-pressed="${state.zeroOnly}">0f only</button>
+        ${PTABS.map(([k, label]) => `<button class="chipbtn" data-ptab="${k}" aria-pressed="${state.ptab === k}">${label}</button>`).join("")}
+        ${state.ptab === "runs" ? `<button class="chipbtn" id="tg-zero" aria-pressed="${state.zeroOnly}">0f only</button>` : ""}
         <a class="chipbtn" href="#vs:${p.slug}">Compare</a>
         <a class="chipbtn" href="#calc:${p.slug}">Score a run</a>
       </div>
-      ${prefs.ride ? rideCard(p) : ""}
-      ${prefs.progress ? levelProgress(p) : ""}
-      <div class="card"><div class="scroll"><table class="t-player">
-        <thead><tr><th>Track</th><th class="num hide-sm">Rating</th><th class="num">Faults</th><th class="num hide-sm">Time</th><th class="num">Place</th><th class="num">Points</th></tr></thead>
-        <tbody>${body || `<tr><td colspan="6" class="empty">${state.q ? `No ${state.zeroOnly ? "0f " : ""}runs match &ldquo;${esc(state.q)}&rdquo;.` : "No 0f runs yet."}</td></tr>`}</tbody>
-      </table></div></div>`;
+      ${state.ptab === "ride" ? rideCard(p) : state.ptab === "progress" ? levelProgress(p) : `<div class="card"><div class="scroll"><table class="t-player">
+        <thead><tr><th>Track</th><th class="num">Faults</th><th class="num hide-sm">Time</th><th class="num">Place</th><th class="num">Points</th></tr></thead>
+        <tbody>${body || `<tr><td colspan="5" class="empty">${state.q ? `No ${state.zeroOnly ? "0f " : ""}runs match &ldquo;${esc(state.q)}&rdquo;.` : "No 0f runs yet."}</td></tr>`}</tbody>
+      </table></div></div>`}`;
   }
 
   // Compare: two players side by side. Their headline numbers (the better one lit), then their runs track by track: the tracks both
@@ -1962,6 +1939,7 @@ var NinjaScore = (() => {
     const c = current();
     const key = location.hash;
     if (["players", "points", "runs", "tracks", "grid"].includes(c.view)) lastList = c.view;
+    $('.seg a[data-view="vs"]').setAttribute("href", c.view === "player" ? `#vs:${c.p.slug}` : "#vs");   // From a player page, Compare starts with them
     document.querySelectorAll(".seg a").forEach(a => a.setAttribute("aria-current", a.dataset.view === navOf(["track", "player"].includes(c.view) ? lastList : c.view) ? "page" : "false"));
     const html = c.view === "runs" ? viewRuns() : c.view === "tracks" ? viewTracks() : c.view === "track" ? viewTrack(c.t) : c.view === "player" ? viewPlayer(c.p) : c.view === "calc" ? viewCalc(c.t, c.p, c.f) : c.view === "vs" ? viewCompare(c.a, c.b) : c.view === "grid" ? viewGrid(c.l) : viewPlayers(c.view === "points");
     const app = $("#app"), entering = key !== prevKey;
@@ -2017,7 +1995,7 @@ var NinjaScore = (() => {
   ["pointerout", "focusout"].forEach(ev => document.addEventListener(ev, e => { if (e.target.closest?.("[data-tip]")) tip.hidden = true; }));
   addEventListener("scroll", () => { tip.hidden = true; }, { passive: true });
   window.addEventListener("hashchange", () => {
-    const go = () => { state.q = ""; $("#q").value = ""; state.shown = PAGE; state.missing = null; state.rideTab = null; state.rideAll = false; tip.hidden = true; render(); searchPop(); };
+    const go = () => { state.q = ""; $("#q").value = ""; state.shown = PAGE; state.missing = null; state.ptab = "runs"; state.rideAll = false; tip.hidden = true; render(); searchPop(); };
     document.startViewTransition && !calm.matches ? document.startViewTransition(go) : go();
   });
   // Typing in the calculator only redraws the result box, not the whole page, so your typing isn't interrupted
@@ -2053,12 +2031,10 @@ var NinjaScore = (() => {
       $("#calc-out").innerHTML = calcResult();
       return;
     }
-    if (b.dataset.ridetab) { state.rideTab = b.dataset.ridetab; state.rideAll = false; render(); $(`[data-ridetab="${b.dataset.ridetab}"]`)?.focus(); return; }
+    if (b.dataset.ptab) { state.ptab = b.dataset.ptab; state.missing = null; state.rideAll = false; render(); $(`[data-ptab="${b.dataset.ptab}"]`)?.focus(); return; }
     if (b.id === "ride-all") { state.rideAll = !state.rideAll; render(); $("#ride-all")?.focus(); return; }
-    if (b.id === "tg-ride") { prefs.ride = !prefs.ride; savePrefs(); render(); $("#tg-ride")?.focus(); return; }
     if (b.dataset.rlevel) { const l = +b.dataset.rlevel, R = state.runLevels; R.has(l) ? R.delete(l) : R.add(l); state.shown = PAGE; render(); $(`[data-rlevel="${l}"]`)?.focus(); return; }
     if (b.id === "tg-zero") { state.zeroOnly = !state.zeroOnly; state.shown = PAGE; render(); $("#tg-zero")?.focus(); }
-    else if (b.id === "tg-progress") { prefs.progress = !prefs.progress; state.missing = null; savePrefs(); render(); $("#tg-progress")?.focus(); }
     else if (b.id === "more") { state.shown += PAGE; render(); }
     else if (b.id === "all") { state.shown = Infinity; render(); }
     else if (b.dataset.missing) {
