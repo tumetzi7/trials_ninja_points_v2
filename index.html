@@ -209,19 +209,22 @@ main { padding-block: 18px 56px; min-width: 0; }
 
 /* Player hero: ten facts as two rows of five on wide screens; the total time may wrap rather than be cut off */
 @media (min-width: 900px) { .facts.p-facts { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
-/* Narrower: two columns, in this order: Elo, runs, rank, level, points rank, points, track records, 0f runs, time, faults */
+/* Wide: Elo, rank, level, points rank, points / hardest pass, track records, 0f runs, total time, runs.
+   Narrower: two columns, in this order: Elo, runs, rank, points rank, level, points, track records, 0f runs, hardest pass, total time */
 @media (max-width: 899px) {
   .facts.p-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .p-facts .fact:nth-child(6) { order: 1; } .p-facts .fact:nth-child(2) { order: 2; } .p-facts .fact:nth-child(3) { order: 3; }
-  .p-facts .fact:nth-child(5) { order: 4; } .p-facts .fact:nth-child(4) { order: 5; } .p-facts .fact:nth-child(n+7) { order: 6; }
+  .p-facts .fact:nth-child(1) { order: 1; } .p-facts .fact:nth-child(10) { order: 2; } .p-facts .fact:nth-child(2) { order: 3; }
+  .p-facts .fact:nth-child(4) { order: 4; } .p-facts .fact:nth-child(3) { order: 5; } .p-facts .fact:nth-child(5) { order: 6; }
+  .p-facts .fact:nth-child(7) { order: 7; } .p-facts .fact:nth-child(8) { order: 8; } .p-facts .fact:nth-child(6) { order: 9; }
+  .p-facts .fact:nth-child(9) { order: 10; }
 }
 .fact b.span { white-space: normal; }
 
-/* Ride next */
+/* Suggested tracks */
 .ride { padding: 14px 16px 0; margin-bottom: 14px; }
-.ride .chart-head { margin-bottom: 8px; }
+.ride .chart-head { margin-bottom: 16px; }
 .ride .chart-head > span { display: inline-flex; align-items: center; gap: 6px; }
-.ride-goal { margin: 0 0 12px; line-height: 1.9; }
+.ride-goal { margin: 0 0 14px; line-height: 2.1; }
 .ride-goal b { font-family: var(--font-data); color: var(--accent); }
 .ride-sub { margin: 4px 0 10px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .ride .scroll { margin: 0 -16px; border-top: 1px solid var(--line); }
@@ -759,7 +762,7 @@ table.guide tbody tr:hover td:first-child { box-shadow: none; }
 .fact small { color: var(--muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
 .fact b { font-family: var(--font-data); font-weight: 600; font-size: 18px; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fact b.txt { font-family: var(--font-body); font-size: 16px; }
-.fact b.hp .hp-r { font-family: var(--font-data); font-size: 18px; margin-right: 2px; }
+.fact b.hp .hp-r { font-family: var(--font-data); }
 .levels { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
 .lv { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; display: grid; gap: 8px; min-width: 0; }
 .lv-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
@@ -933,7 +936,7 @@ var NinjaScore = (() => {
 
   // Sums one player's run points into their Elo score, total points, effective level, Elo, rank and gem. `sc` is every run's points,
   // best first; `highestLevel` is the hardest official level they've passed (the rank gate). score() uses it for everyone, and the
-  // "Ride next" panel uses it to try out runs a player hasn't ridden yet
+  // "Suggested tracks" panel uses it to try out runs a player hasn't ridden yet
   function playerScorer(S) {
     const { llw, scale } = curve(S);
     const inv = llw.map(([l, w]) => [w, l]);
@@ -1697,7 +1700,7 @@ var NinjaScore = (() => {
     const gem = R.nextGem ? `<span>${fmtInt(Math.ceil(R.nextGem[1] - p.TotalPoints))} points to ${gemChip(R.nextGem[0])}</span>` : "";
     return `
       <div class="card ride">
-        <div class="chart-head"><h3>Ride next</h3>${gem}</div>
+        <div class="chart-head"><h3>Suggested tracks</h3>${gem}</div>
         ${goal}
         <h4 class="ride-sub">Next steps <span class="lv-of">${list.length}</span></h4>
         ${list.length ? `<div class="scroll"><table class="t-ride">
@@ -1710,7 +1713,7 @@ var NinjaScore = (() => {
   }
 
   // A player page shows one of these under its header, All runs when it opens
-  const PTABS = [["runs", "All runs"], ["ride", "Ride next"], ["progress", "Level progress"]];
+  const PTABS = [["runs", "All runs"], ["ride", "Suggested tracks"], ["progress", "Level progress"]];
   function viewPlayer(p) {
     const list = p.runs.filter(r => (!state.zeroOnly || r.Faults === 0) && match(r.Track));
     const records = p.runs.filter(r => r.trackPos === 1).length;
@@ -1732,13 +1735,13 @@ var NinjaScore = (() => {
           <div class="fact"><small>Elo</small><b data-count="${p.Elo}">${fmtInt(p.Elo)}</b></div>
           <div class="fact"><small>Rank ${infoBtn("elo")}</small><b class="txt">${rankChip(p.Rank)}</b></div>
           <div class="fact"><small>Level</small><b>${p.Level.toFixed(2)}</b></div>
-          <div class="fact"><small>Total points</small><b>${fmtInt(Math.round(p.TotalPoints))}</b></div>
           <div class="fact"><small>Points rank ${infoBtn("gems")}</small><b class="txt">${gemChip(gemOf(p))}</b></div>
-          <div class="fact"><small>Runs</small><b>${p.Runs}</b></div>
+          <div class="fact"><small>Total points</small><b>${fmtInt(Math.round(p.TotalPoints))}</b></div>
+          <div class="fact"><small>Hardest pass</small><b class="txt hp"${hardest ? ` title="${esc(hardest.Track)}, Lvl ${+hardest.Rating.toFixed(2)}"` : ""}>${hardest ? `<a class="lnk" href="#${hardest.slug}">${esc(hardest.Track)} <span class="hp-r">(${+hardest.Rating.toFixed(2)})</span></a>` : "&ndash;"}</b></div>
           <div class="fact"><small>Track records</small><b>${records}</b></div>
           <div class="fact"><small>0f runs</small><b>${flawless}</b></div>
-          <div class="fact"><small>Hardest pass</small><b class="txt hp"${hardest ? ` title="${esc(hardest.Track)}, Lvl ${+hardest.Rating.toFixed(2)}"` : ""}>${hardest ? `<a class="lnk" href="#${hardest.slug}"><span class="hp-r">${+hardest.Rating.toFixed(2)}</span> ${esc(hardest.Track)}</a>` : "&ndash;"}</b></div>
           <div class="fact"><small>Total time</small><b class="span" title="Every logged pass added up">${fmtSpan(p.runs.reduce((s, r) => s + r.Time, 0))}</b></div>
+          <div class="fact"><small>Runs</small><b>${p.Runs}</b></div>
         </div>
         ${eloByLevel(p)}
       </section>
